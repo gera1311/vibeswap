@@ -1,0 +1,25 @@
+{
+  "chainId": 4441,
+  "vbUSDC": {
+    "address": "0x5a9b445e43559c75c7b22befc3d471cc177069cc",
+    "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+    "faucetFeeZkLTC": "0.0002",
+    "claimAmount": "0.5",
+    "maxSupply": "10000000",
+    "initialOwnerSupply": "1000000",
+    "transactionHash": "0x94fbea10a899879b5e4766525267e310fb7c1cf6f2e58c67d210f0c995db3a95",
+    "blockNumber": "34621779"
+  },
+  "swap": {
+    "address": "0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d",
+    "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+    "swapFeeZkLTC": "0.0002",
+    "rateVbUSDCPerZkLTC": "1000",
+    "initialTokenLiquidity": "100",
+    "initialNativeLiquidity": "0.1",
+    "transactionHash": "0x84a39b2a0d2a811ba4a23cbddb35d19af997b9f2529730f47dc631c13c5e960e",
+    "blockNumber": "34621784",
+    "liquidityTransactionHash": "0x14cf40340276a8bcd2f1d9f32861f3df562df65cd84ea7d40e0c5d88ba9a055a",
+    "liquidityBlockNumber": "34621792"
+  }
+}

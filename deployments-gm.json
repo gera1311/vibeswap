@@ -1,0 +1,9 @@
+{
+  "chainId": 4441,
+  "contract": "GM",
+  "address": "0x2791bb410616779a2d50bf4a3223afea51c8a656",
+  "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+  "gmFeeZkLTC": "0.0001",
+  "transactionHash": "0x6d27b8ceb18d62dfd683eb357d03a000d10de7169d49fa6330cfaa08712a4159",
+  "blockNumber": "34598068"
+}
