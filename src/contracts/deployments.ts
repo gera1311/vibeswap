@@ -5,9 +5,11 @@ export const contractDeployments = {
   gm: '0x2791bb410616779a2d50bf4a3223afea51c8a656',
   vbUSDC: '0x5a9b445e43559c75c7b22befc3d471cc177069cc',
   swap: '0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d',
+  game: '0xc45a2d0446e16ea2977e2ddd5fea463c392baacc',
 } as const satisfies {
   chainId: number
   gm: Address
   vbUSDC: Address
   swap: Address
+  game: Address
 }

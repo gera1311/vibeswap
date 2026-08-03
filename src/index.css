@@ -520,6 +520,32 @@ input {
   margin-bottom: 48px;
 }
 
+.section-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 28px;
+}
+
+.section-tab {
+  min-width: 104px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.section-tab:hover,
+.section-tab.active {
+  border-color: var(--primary);
+  color: var(--text);
+  background: rgba(158, 127, 255, 0.12);
+}
+
 .section-title {
   font-family: var(--font-display);
   font-size: 36px;
@@ -714,6 +740,226 @@ input {
 
 .tx-link:hover {
   text-decoration: underline;
+}
+
+/* ========== VIBE BLOCKS GAME ========== */
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.game-shell,
+.leaderboard-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+}
+
+.leaderboard-card.standalone {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.game-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.game-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.game-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.game-score-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.game-score-box {
+  min-width: 82px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.game-score-box span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.game-score-box strong {
+  display: block;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.vibe-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: min(100%, 480px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 10px;
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+}
+
+.vibe-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: clamp(22px, 5vw, 42px);
+  font-weight: 800;
+  line-height: 1;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.tile-empty { background: rgba(255, 255, 255, 0.04); }
+.tile-2 { background: #2f4858; color: #e0f2fe; }
+.tile-4 { background: #256d85; color: #e0f2fe; }
+.tile-8 { background: #2dd4bf; color: #042f2e; }
+.tile-16 { background: #22c55e; color: #052e16; }
+.tile-32 { background: #a3e635; color: #1a2e05; }
+.tile-64 { background: #facc15; color: #422006; }
+.tile-128 { background: #fb923c; color: #431407; font-size: clamp(18px, 4vw, 34px); }
+.tile-256 { background: #f472b6; color: #500724; font-size: clamp(18px, 4vw, 34px); }
+.tile-512 { background: #c084fc; color: #2e1065; font-size: clamp(18px, 4vw, 34px); }
+.tile-1024 { background: #818cf8; color: #111827; font-size: clamp(16px, 3.4vw, 30px); }
+.tile-2048 { background: linear-gradient(135deg, var(--gold), var(--accent)); color: #171717; font-size: clamp(16px, 3.4vw, 30px); }
+
+.game-over-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.game-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.game-action {
+  flex: 1;
+  min-width: 140px;
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  font-weight: 800;
+}
+
+.game-action.secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.game-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.game-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.leaderboard-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.leaderboard-row span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.leaderboard-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.leaderboard-row em {
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.leaderboard-empty {
+  padding: 18px;
+  color: var(--text-secondary);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .swap-action-btn {
@@ -1764,6 +2010,10 @@ input {
     max-width: 400px;
     margin: 0 auto;
   }
+
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1841,6 +2091,18 @@ input {
     width: 100%;
     justify-content: flex-end;
   }
+
+  .game-topbar {
+    flex-direction: column;
+  }
+
+  .game-score-grid {
+    width: 100%;
+  }
+
+  .game-score-box {
+    flex: 1;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1863,6 +2125,24 @@ input {
 
   .swap-input {
     font-size: 20px;
+  }
+
+  .game-shell,
+  .leaderboard-card {
+    padding: 14px;
+  }
+
+  .vibe-board {
+    gap: 7px;
+    padding: 7px;
+  }
+
+  .game-title {
+    font-size: 21px;
+  }
+
+  .game-actions {
+    flex-direction: column;
   }
 }
 

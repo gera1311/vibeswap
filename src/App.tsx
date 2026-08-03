@@ -2,19 +2,22 @@ import React, { useState, useRef, Suspense } from 'react'
 import { useAccount, useConnect, useDisconnect, useSwitchChain, useBalance, useBlockNumber, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
-import { Sun, ArrowRightLeft, Sparkles, Gift, Flame, Wallet, LogOut, Menu, X, Droplets, ExternalLink } from 'lucide-react'
+import { Sun, ArrowRightLeft, Sparkles, Gift, Flame, Wallet, LogOut, Menu, X, Droplets, ExternalLink, Gamepad2, Trophy } from 'lucide-react'
 import { litVM } from './wagmi'
 import { vbUSDCAddress, vbUSDCApi } from './contracts/vbUSDC'
 import { gmAddress, gmAbi } from './contracts/GM'
 import { swapAddress, swapAbi } from './contracts/Swap'
+import { vibeGameAddress, vibeGameAbi, isVibeGameDeployed } from './contracts/VibeGame'
 import SunSphere from './components/SunSphere'
+import VibeBlocks from './components/VibeBlocks'
 import SwapPanel, { type SwapDirection } from './components/SwapPanel'
 import GMTracker from './components/GMTracker'
 import NFTGallery from './components/NFTGallery'
 import FaucetPanel from './components/FaucetPanel'
 import NetworkInfo from './components/NetworkInfo'
 
-type Page = 'swap' | 'gm' | 'nft' | 'faucet' | 'network'
+type Page = 'game' | 'swap' | 'gm' | 'nft' | 'faucet' | 'leaderboard' | 'network'
+type NavGroup = 'gm' | 'vibe' | 'swap'
 
 const explorerBaseUrl = litVM.blockExplorers?.default.url.replace(/\/$/, '')
 
@@ -176,18 +179,52 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: true },
   })
+  const { data: gameEntryFee } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'entryFee',
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: gameActiveRun, refetch: refetchGameActiveRun } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'activeRun',
+    args: [address!],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed && !!address },
+  })
+  const { data: gameBestScore, refetch: refetchGameBestScore } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'bestScore',
+    args: [address!],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed && !!address },
+  })
+  const { data: gameTopScores, refetch: refetchGameTopScores } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getTopScores',
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
   const { writeContract: writeFaucet, data: faucetHash, isPending: faucetPending, error: faucetWriteError, reset: resetFaucet } = useWriteContract()
   const { writeContract: writeGM, data: gmHash, isPending: gmPending, error: gmWriteError, reset: resetGM } = useWriteContract()
   const { writeContract: writeApprove, data: approveHash, isPending: approvePending, error: approveWriteError, reset: resetApprove } = useWriteContract()
   const { writeContract: writeSwap, data: swapHash, isPending: swapPending, error: swapWriteError, reset: resetSwap } = useWriteContract()
+  const { writeContract: writeGameStart, data: gameStartHash, isPending: gameStartPending, error: gameStartWriteError, reset: resetGameStart } = useWriteContract()
+  const { writeContract: writeGameSubmit, data: gameSubmitHash, isPending: gameSubmitPending, error: gameSubmitWriteError, reset: resetGameSubmit } = useWriteContract()
   const { isLoading: faucetConfirming, isSuccess: faucetSuccess, error: faucetReceiptError } = useWaitForTransactionReceipt({ hash: faucetHash, chainId: litVM.id })
   const { isLoading: gmConfirming, isSuccess: gmSuccess, error: gmReceiptError } = useWaitForTransactionReceipt({ hash: gmHash, chainId: litVM.id })
   const { isLoading: approveConfirming, isSuccess: approveSuccess, error: approveReceiptError } = useWaitForTransactionReceipt({ hash: approveHash, chainId: litVM.id })
   const { isLoading: swapConfirming, isSuccess: swapSuccess, error: swapReceiptError } = useWaitForTransactionReceipt({ hash: swapHash, chainId: litVM.id })
+  const { isLoading: gameStartConfirming, isSuccess: gameStartSuccess, error: gameStartReceiptError } = useWaitForTransactionReceipt({ hash: gameStartHash, chainId: litVM.id })
+  const { isLoading: gameSubmitConfirming, isSuccess: gameSubmitSuccess, error: gameSubmitReceiptError } = useWaitForTransactionReceipt({ hash: gameSubmitHash, chainId: litVM.id })
   const [menuOpen, setMenuOpen] = useState(false)
   const [gmPulsing, setGmPulsing] = useState(false)
   const [pendingSwapAmount, setPendingSwapAmount] = useState<bigint | null>(null)
-  const [currentPage, setCurrentPage] = useState<Page>('swap')
+  const [currentPage, setCurrentPage] = useState<Page>('game')
   const heroRef = useRef<HTMLDivElement>(null)
 
   const gmStreakNum = gmStreak ? Number(gmStreak) : 0
@@ -197,9 +234,11 @@ export default function App() {
   const gmFeeValue = gmFee ?? 0n
   const faucetFeeValue = faucetFee ?? 0n
   const swapFeeValue = swapFee ?? 0n
+  const gameEntryFeeValue = gameEntryFee ?? 0n
   const gmFeeFormatted = formatEther(gmFeeValue)
   const faucetFeeFormatted = formatEther(faucetFeeValue)
   const swapFeeFormatted = formatEther(swapFeeValue)
+  const gameEntryFeeFormatted = formatEther(gameEntryFeeValue)
   const vbUSDCFormatted = vbUSDCBalance ? formatUnits(vbUSDCBalance, 6) : '0'
   const zkLTCFormatted = balance ? Number(formatUnits(balance.value, balance.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : '0'
   const claimAmt = claimAmount ? formatUnits(claimAmount, 6) : '0.5'
@@ -209,6 +248,12 @@ export default function App() {
   const faucetError = txErrorMessage(faucetWriteError || faucetReceiptError)
   const gmError = txErrorMessage(gmWriteError || gmReceiptError)
   const swapError = txErrorMessage(swapWriteError || swapReceiptError || approveWriteError || approveReceiptError)
+  const gameError = txErrorMessage(gameStartWriteError || gameStartReceiptError || gameSubmitWriteError || gameSubmitReceiptError)
+  const gameLeaderboard = gameTopScores
+    ? gameTopScores[0]
+      .map((player, index) => ({ player, score: Number(gameTopScores[1][index]) }))
+      .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
+    : []
 
   const handleGM = () => {
     if (gmClaimed || !onChain || gmPending || gmConfirming) return
@@ -240,6 +285,16 @@ export default function App() {
     }
 
     writeSwap({ abi: swapAbi, address: swapAddress, functionName: 'swapExactInput', args: [amount, 0n], value: swapFeeValue })
+  }
+
+  const handleStartRankedRun = () => {
+    if (!isVibeGameDeployed || !onChain || gameStartPending || gameStartConfirming) return
+    writeGameStart({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'startRun', args: [], value: gameEntryFeeValue })
+  }
+
+  const handleSubmitGameScore = (score: number) => {
+    if (!isVibeGameDeployed || !onChain || gameSubmitPending || gameSubmitConfirming) return
+    writeGameSubmit({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'submitScore', args: [BigInt(score)] })
   }
 
   const refreshContractReads = React.useCallback(async () => {
@@ -329,6 +384,33 @@ export default function App() {
     return () => window.clearTimeout(timeout)
   }, [refetchNativeBalance, refetchRate, refetchVbUSDC, refetchVbUSDCAllowance, refetchVbUSDCReserve, refetchZkLTCReserve, refreshContractReads, resetSwap, swapSuccess])
 
+  React.useEffect(() => {
+    if (!gameStartSuccess) return
+
+    void Promise.all([
+      refetchGameActiveRun(),
+      refetchNativeBalance(),
+      refreshContractReads(),
+    ])
+
+    const timeout = window.setTimeout(() => resetGameStart(), 2500)
+    return () => window.clearTimeout(timeout)
+  }, [gameStartSuccess, refetchGameActiveRun, refetchNativeBalance, refreshContractReads, resetGameStart])
+
+  React.useEffect(() => {
+    if (!gameSubmitSuccess) return
+
+    void Promise.all([
+      refetchGameActiveRun(),
+      refetchGameBestScore(),
+      refetchGameTopScores(),
+      refreshContractReads(),
+    ])
+
+    const timeout = window.setTimeout(() => resetGameSubmit(), 2500)
+    return () => window.clearTimeout(timeout)
+  }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTopScores, refreshContractReads, resetGameSubmit])
+
   const wrongNetwork = isConnected && chainId !== litVM.id
 
   const addLitVMToWallet = async () => {
@@ -354,6 +436,28 @@ export default function App() {
     setMenuOpen(false)
   }
 
+  const currentGroup: NavGroup =
+    currentPage === 'gm' || currentPage === 'nft'
+      ? 'gm'
+      : currentPage === 'swap' || currentPage === 'faucet'
+        ? 'swap'
+        : 'vibe'
+
+  const renderSectionTabs = (items: Array<{ page: Page; label: string }>) => (
+    <div className="section-tabs" aria-label="Section navigation">
+      {items.map(item => (
+        <button
+          className={`section-tab ${currentPage === item.page ? 'active' : ''}`}
+          key={item.page}
+          onClick={() => navigateTo(item.page)}
+          type="button"
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+
   const claimedBadges: string[] = []
   if (gmBadgesNum >= 1) claimedBadges.push('3day')
   if (gmBadgesNum >= 2) claimedBadges.push('10day')
@@ -361,9 +465,75 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'game':
+        return (
+          <section className="section" id="game">
+            {renderSectionTabs([
+              { page: 'game', label: 'Game' },
+              { page: 'leaderboard', label: 'Leaderboard' },
+            ])}
+            <div className="section-header">
+              <h2 className="section-title">
+                <Gamepad2 size={24} />
+                Vibe Blocks
+              </h2>
+              <p className="section-subtitle">Play free runs or enter ranked onchain runs on LitVM</p>
+            </div>
+            <VibeBlocks
+              isConnected={isConnected}
+              wrongNetwork={wrongNetwork}
+              onChain={onChain}
+              rankedEnabled={isVibeGameDeployed}
+              rankedActive={gameActiveRun === true}
+              entryFee={gameEntryFeeFormatted}
+              bestScore={gameBestScore ? Number(gameBestScore) : 0}
+              leaderboard={gameLeaderboard}
+              onStartRanked={handleStartRankedRun}
+              onSubmitScore={handleSubmitGameScore}
+              startPending={gameStartPending || gameStartConfirming}
+              startSuccess={gameStartSuccess}
+              submitPending={gameSubmitPending || gameSubmitConfirming}
+              txUrl={txUrl(gameSubmitHash || gameStartHash)}
+              txError={gameError}
+            />
+          </section>
+        )
+      case 'leaderboard':
+        return (
+          <section className="section" id="leaderboard">
+            {renderSectionTabs([
+              { page: 'game', label: 'Game' },
+              { page: 'leaderboard', label: 'Leaderboard' },
+            ])}
+            <div className="section-header">
+              <h2 className="section-title">
+                <Trophy size={24} />
+                Leaderboard
+              </h2>
+              <p className="section-subtitle">Top ranked Vibe Blocks runs recorded onchain</p>
+            </div>
+            <div className="leaderboard-card standalone">
+              <div className="leaderboard-list">
+                {gameLeaderboard.length ? gameLeaderboard.map((entry, index) => (
+                  <div className="leaderboard-row" key={entry.player}>
+                    <span>#{index + 1}</span>
+                    <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
+                    <em>{entry.score}</em>
+                  </div>
+                )) : (
+                  <div className="leaderboard-empty">No ranked scores yet</div>
+                )}
+              </div>
+            </div>
+          </section>
+        )
       case 'swap':
         return (
           <section className="section" id="swap">
+            {renderSectionTabs([
+              { page: 'swap', label: 'Swap' },
+              { page: 'faucet', label: 'Faucet' },
+            ])}
             <div className="section-header">
               <h2 className="section-title">
                 <ArrowRightLeft size={24} />
@@ -392,6 +562,10 @@ export default function App() {
       case 'faucet':
         return (
           <section className="section" id="faucet">
+            {renderSectionTabs([
+              { page: 'swap', label: 'Swap' },
+              { page: 'faucet', label: 'Faucet' },
+            ])}
             <div className="section-header">
               <h2 className="section-title">
                 <Droplets size={24} />
@@ -418,6 +592,10 @@ export default function App() {
       case 'gm':
         return (
           <section className="section" id="gm">
+            {renderSectionTabs([
+              { page: 'gm', label: 'GM' },
+              { page: 'nft', label: 'Badges' },
+            ])}
             <div className="section-header">
               <h2 className="section-title">
                 <Flame size={24} />
@@ -442,6 +620,10 @@ export default function App() {
       case 'nft':
         return (
           <section className="section" id="nft">
+            {renderSectionTabs([
+              { page: 'gm', label: 'GM' },
+              { page: 'nft', label: 'Badges' },
+            ])}
             <div className="section-header">
               <h2 className="section-title">
                 <Gift size={24} />
@@ -481,17 +663,15 @@ export default function App() {
       <nav className="nav">
         <div className="nav-inner">
           <div className="nav-left">
-            <div className="logo" onClick={() => navigateTo('swap')} style={{ cursor: 'pointer' }}>
+            <div className="logo" onClick={() => navigateTo('game')} style={{ cursor: 'pointer' }}>
               <Sun size={28} className="logo-icon" />
               <span className="logo-text">Vibeswap</span>
             </div>
           </div>
           <div className="nav-center desktop-only">
-            <a href="#swap" className={`nav-link ${currentPage === 'swap' ? 'active' : ''}`} onClick={() => navigateTo('swap')}>Swap</a>
-            <a href="#faucet" className={`nav-link ${currentPage === 'faucet' ? 'active' : ''}`} onClick={() => navigateTo('faucet')}>Faucet</a>
-            <a href="#network" className={`nav-link ${currentPage === 'network' ? 'active' : ''}`} onClick={() => navigateTo('network')}>Network</a>
-            <a href="#gm" className={`nav-link ${currentPage === 'gm' ? 'active' : ''}`} onClick={() => navigateTo('gm')}>GM</a>
-            <a href="#nft" className={`nav-link ${currentPage === 'nft' ? 'active' : ''}`} onClick={() => navigateTo('nft')}>Badges</a>
+            <a href="#gm" className={`nav-link ${currentGroup === 'gm' ? 'active' : ''}`} onClick={() => navigateTo('gm')}>GM</a>
+            <a href="#game" className={`nav-link ${currentGroup === 'vibe' ? 'active' : ''}`} onClick={() => navigateTo('game')}>Vibe</a>
+            <a href="#swap" className={`nav-link ${currentGroup === 'swap' ? 'active' : ''}`} onClick={() => navigateTo('swap')}>Swap</a>
           </div>
           <div className="nav-right">
             <button className="add-network-btn" onClick={addLitVMToWallet} title="Add LitVM LiteForge to wallet">
@@ -533,11 +713,9 @@ export default function App() {
         </div>
         {menuOpen && (
           <div className="mobile-menu">
-            <a href="#swap" onClick={() => navigateTo('swap')}>Swap</a>
-            <a href="#faucet" onClick={() => navigateTo('faucet')}>Faucet</a>
-            <a href="#network" onClick={() => navigateTo('network')}>Network</a>
             <a href="#gm" onClick={() => navigateTo('gm')}>GM</a>
-            <a href="#nft" onClick={() => navigateTo('nft')}>Badges</a>
+            <a href="#game" onClick={() => navigateTo('game')}>Vibe</a>
+            <a href="#swap" onClick={() => navigateTo('swap')}>Swap</a>
           </div>
         )}
       </nav>
@@ -559,9 +737,9 @@ export default function App() {
           </div>
           <div className="hero-text">
             <h1 className="hero-title">
-              Swap & <span className="gradient-text">GM</span>
+              Play & <span className="gradient-text">GM</span>
             </h1>
-            <p className="hero-subtitle">Trade tokens, earn daily streaks, collect NFT badges</p>
+            <p className="hero-subtitle">Onchain arcade, ranked runs, swaps, faucet claims and daily streaks on LitVM</p>
             <div className="hero-stats">
               <div className="stat">
                 <span className="stat-value">{gmTotalNum}</span>

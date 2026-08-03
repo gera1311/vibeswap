@@ -1,0 +1,9 @@
+{
+  "chainId": 4441,
+  "contract": "VibeGame",
+  "address": "0xc45a2d0446e16ea2977e2ddd5fea463c392baacc",
+  "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+  "entryFeeZkLTC": "0.0051",
+  "transactionHash": "0x3692bb24f4129399efdccf3cba1ddd5b796d5022eaf1fc16fe801c4113e7995e",
+  "blockNumber": "36243557"
+}

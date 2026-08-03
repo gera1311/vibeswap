@@ -1,12 +1,18 @@
 # Vibeswap
 
-Vibeswap is a LitVM LiteForge DeFi testnet app with token swaps, a paid faucet, daily GM streaks, and badge progress.
+Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a paid faucet, daily GM streaks, and badge progress.
 
 ## Features
 
 - Wallet connection through `wagmi` injected wallet connector.
 - LitVM LiteForge network support, including add/switch network actions.
 - Native `zkLTC` balance display.
+- Vibe Blocks game:
+  - 2048-style casual puzzle game.
+  - free mode with no transactions.
+  - ranked mode with `0.0051 zkLTC` entry fee.
+  - onchain score submission.
+  - top-10 onchain leaderboard.
 - `vbUSDC` faucet:
   - `0.5 vbUSDC` per claim.
   - 24 hour cooldown per wallet.
@@ -46,6 +52,7 @@ Current deployed contracts are defined in [src/contracts/deployments.ts](src/con
 GM:     0x2791bb410616779a2d50bf4a3223afea51c8a656
 vbUSDC: 0x5a9b445e43559c75c7b22befc3d471cc177069cc
 Swap:   0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
+Game:   0xc45a2d0446e16ea2977e2ddd5fea463c392baacc
 ```
 
 ## Requirements
@@ -102,6 +109,8 @@ PRIVATE_KEY=
 LITVM_RPC_URL=https://liteforge.rpc.caldera.xyz/http
 GM_TREASURY_ADDRESS=
 GM_FEE_ZKLTC=0.0001
+GAME_TREASURY_ADDRESS=
+GAME_ENTRY_FEE_ZKLTC=0.0051
 FEE_TREASURY_ADDRESS=
 FAUCET_FEE_ZKLTC=0.0002
 VBUSDC_CLAIM_AMOUNT=0.5
@@ -122,6 +131,7 @@ Never commit `.env` or private keys.
 Solidity contracts live in [contracts](contracts).
 
 - [contracts/GM.sol](contracts/GM.sol)
+- [contracts/VibeGame.sol](contracts/VibeGame.sol)
 - [contracts/vbUSDC.sol](contracts/vbUSDC.sol)
 - [contracts/Swap.sol](contracts/Swap.sol)
 
@@ -134,6 +144,14 @@ npm run deploy:gm
 ```
 
 This deploys a new GM contract and updates `src/contracts/deployments.ts`.
+
+### Deploy VibeGame
+
+```bash
+npm run deploy:game
+```
+
+This deploys the ranked game contract and updates `src/contracts/deployments.ts`.
 
 ### Deploy vbUSDC and Swap
 
@@ -177,9 +195,11 @@ zkLTC reserve: 0.11
 - Verify contract source code in the LitVM explorer if explorer verification is available.
 - Keep enough `zkLTC` liquidity in the swap pool for expected swap volume.
 - Keep treasury/deployer private keys outside git.
+- Keep game score verification in mind before larger public reward campaigns. The MVP records scores onchain after a browser run; future anti-cheat can add commit/reveal or server-side validation.
 
 ## Useful Explorer Links
 
 - GM: https://liteforge.explorer.caldera.xyz/address/0x2791bb410616779a2d50bf4a3223afea51c8a656
 - vbUSDC: https://liteforge.explorer.caldera.xyz/address/0x5a9b445e43559c75c7b22befc3d471cc177069cc
 - Swap: https://liteforge.explorer.caldera.xyz/address/0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
+- Game: https://liteforge.explorer.caldera.xyz/address/0xc45a2d0446e16ea2977e2ddd5fea463c392baacc
