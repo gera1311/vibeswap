@@ -9,10 +9,11 @@ Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a p
 - Native `zkLTC` balance display.
 - Vibe Blocks game:
   - 2048-style casual puzzle game.
-  - free mode with no transactions.
   - ranked mode with `0.0051 zkLTC` entry fee.
+  - game starts as soon as the start transaction is submitted.
+  - score is submitted automatically when the run ends.
   - onchain score submission.
-  - top-10 onchain leaderboard.
+  - top-10 best-score and total-score onchain leaderboards.
 - `vbUSDC` faucet:
   - `0.5 vbUSDC` per claim.
   - 24 hour cooldown per wallet.
@@ -52,7 +53,7 @@ Current deployed contracts are defined in [src/contracts/deployments.ts](src/con
 GM:     0x2791bb410616779a2d50bf4a3223afea51c8a656
 vbUSDC: 0x5a9b445e43559c75c7b22befc3d471cc177069cc
 Swap:   0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
-Game:   0xc45a2d0446e16ea2977e2ddd5fea463c392baacc
+Game:   0xf9d45161cf58b56ea14d65cb38b1a47056b3e766
 ```
 
 ## Requirements
@@ -196,10 +197,11 @@ zkLTC reserve: 0.11
 - Keep enough `zkLTC` liquidity in the swap pool for expected swap volume.
 - Keep treasury/deployer private keys outside git.
 - Keep game score verification in mind before larger public reward campaigns. The MVP records scores onchain after a browser run; future anti-cheat can add commit/reveal or server-side validation.
+- Game leaderboard points are isolated in `scoreToLeaderboardPoints()` inside `VibeGame`, so future seasonal scoring rules can be adjusted in one place before a new season deployment.
 
 ## Useful Explorer Links
 
 - GM: https://liteforge.explorer.caldera.xyz/address/0x2791bb410616779a2d50bf4a3223afea51c8a656
 - vbUSDC: https://liteforge.explorer.caldera.xyz/address/0x5a9b445e43559c75c7b22befc3d471cc177069cc
 - Swap: https://liteforge.explorer.caldera.xyz/address/0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
-- Game: https://liteforge.explorer.caldera.xyz/address/0xc45a2d0446e16ea2977e2ddd5fea463c392baacc
+- Game: https://liteforge.explorer.caldera.xyz/address/0xf9d45161cf58b56ea14d65cb38b1a47056b3e766

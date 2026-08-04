@@ -13,15 +13,17 @@ interface VibeBlocksProps {
   wrongNetwork: boolean
   onChain: boolean
   rankedEnabled: boolean
-  rankedActive: boolean
   entryFee: string
   bestScore: number
-  leaderboard: LeaderboardEntry[]
+  totalScore: number
+  bestLeaderboard: LeaderboardEntry[]
+  totalLeaderboard: LeaderboardEntry[]
   onStartRanked: () => void
   onSubmitScore: (score: number) => void
   startPending: boolean
-  startSuccess: boolean
+  startSubmitted: boolean
   submitPending: boolean
+  submitSuccess: boolean
   txUrl?: string
   txError?: string
 }
@@ -137,36 +139,38 @@ export default function VibeBlocks({
   wrongNetwork,
   onChain,
   rankedEnabled,
-  rankedActive,
   entryFee,
   bestScore,
-  leaderboard,
+  totalScore,
+  bestLeaderboard,
+  totalLeaderboard,
   onStartRanked,
   onSubmitScore,
   startPending,
-  startSuccess,
+  startSubmitted,
   submitPending,
+  submitSuccess,
   txUrl,
   txError,
 }: VibeBlocksProps) {
-  const [board, setBoard] = React.useState<Board>(() => createBoard())
+  const [board, setBoard] = React.useState<Board>(() => emptyBoard())
   const [score, setScore] = React.useState(0)
-  const [mode, setMode] = React.useState<'free' | 'ranked'>('free')
+  const [runStarted, setRunStarted] = React.useState(false)
   const [gameOver, setGameOver] = React.useState(false)
-  const [rankedSubmitted, setRankedSubmitted] = React.useState(false)
+  const [scoreSubmitted, setScoreSubmitted] = React.useState(false)
   const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null)
-  const previousStartSuccess = React.useRef(false)
+  const previousStartSubmitted = React.useRef(false)
 
-  const resetGame = React.useCallback((nextMode: 'free' | 'ranked') => {
+  const resetGame = React.useCallback(() => {
     setBoard(createBoard())
     setScore(0)
-    setMode(nextMode)
+    setRunStarted(true)
     setGameOver(false)
-    setRankedSubmitted(false)
+    setScoreSubmitted(false)
   }, [])
 
   const performMove = React.useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
-    if (gameOver) return
+    if (!runStarted || gameOver) return
 
     setBoard(current => {
       const moved = moveBoard(current, direction)
@@ -177,15 +181,27 @@ export default function VibeBlocks({
 
       return moved.board
     })
-  }, [gameOver])
+  }, [gameOver, runStarted])
 
   React.useEffect(() => {
-    if (!previousStartSuccess.current && startSuccess && rankedActive) {
-      resetGame('ranked')
+    if (!previousStartSubmitted.current && startSubmitted) {
+      resetGame()
     }
 
-    previousStartSuccess.current = startSuccess
-  }, [rankedActive, resetGame, startSuccess])
+    previousStartSubmitted.current = startSubmitted
+  }, [resetGame, startSubmitted])
+
+  React.useEffect(() => {
+    if (!gameOver || !runStarted || scoreSubmitted || submitPending || score <= 0) return
+
+    setScoreSubmitted(true)
+    onSubmitScore(score)
+  }, [gameOver, onSubmitScore, runStarted, score, scoreSubmitted, submitPending])
+
+  React.useEffect(() => {
+    if (!submitSuccess) return
+    setRunStarted(false)
+  }, [submitSuccess])
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -209,10 +225,6 @@ export default function VibeBlocks({
 
   const startRanked = () => {
     if (!rankedEnabled || !onChain) return
-    if (rankedActive) {
-      resetGame('ranked')
-      return
-    }
     onStartRanked()
   }
 
@@ -254,6 +266,10 @@ export default function VibeBlocks({
               <span>Best</span>
               <strong>{bestScore}</strong>
             </div>
+            <div className="game-score-box">
+              <span>Total</span>
+              <strong>{totalScore}</strong>
+            </div>
           </div>
         </div>
 
@@ -269,36 +285,34 @@ export default function VibeBlocks({
           )))}
         </div>
 
+        {!runStarted && (
+          <div className="game-locked-panel">
+            <Wallet size={18} />
+            <span>Start a ranked run to unlock the board.</span>
+          </div>
+        )}
+
         {gameOver && (
           <div className="game-over-panel">
             <Trophy size={18} />
-            <span>Run complete: {score}</span>
+            <span>{scoreSubmitted ? `Submitting score: ${score}` : `Run complete: ${score}`}</span>
           </div>
         )}
 
         <div className="game-actions">
-          <button className="game-action secondary" onClick={() => resetGame('free')}>
-            Free Run
-          </button>
           <button
             className="game-action"
             onClick={startRanked}
-            disabled={!isConnected || wrongNetwork || startPending || !rankedEnabled}
+            disabled={!isConnected || wrongNetwork || startPending || submitPending || !rankedEnabled || (runStarted && !gameOver)}
           >
-            {startPending ? 'Starting...' : rankedActive ? 'Play Ranked' : `Ranked ${entryFee} zkLTC`}
+            {startPending
+              ? 'Starting...'
+              : submitPending
+                ? 'Submitting...'
+                : runStarted && !gameOver
+                  ? 'Run active'
+                  : `Start ${entryFee} zkLTC`}
           </button>
-          {mode === 'ranked' && gameOver && !rankedSubmitted && (
-            <button
-              className="game-action"
-              onClick={() => {
-                setRankedSubmitted(true)
-                onSubmitScore(score)
-              }}
-              disabled={!rankedActive || submitPending || score <= 0}
-            >
-              {submitPending ? 'Submitting...' : 'Submit Score'}
-            </button>
-          )}
         </div>
 
         {!isConnected && (
@@ -311,7 +325,7 @@ export default function VibeBlocks({
         {!rankedEnabled && (
           <div className="game-notice">
             <Zap size={16} />
-            Ranked contract is not deployed yet. Free mode is available.
+            Ranked contract is not deployed yet.
           </div>
         )}
 
@@ -329,10 +343,10 @@ export default function VibeBlocks({
       <div className="leaderboard-card">
         <div className="leaderboard-header">
           <Trophy size={20} />
-          <span>Onchain Leaderboard</span>
+          <span>Best Score</span>
         </div>
         <div className="leaderboard-list">
-          {leaderboard.length ? leaderboard.map((entry, index) => (
+          {bestLeaderboard.length ? bestLeaderboard.map((entry, index) => (
             <div className="leaderboard-row" key={entry.player}>
               <span>#{index + 1}</span>
               <strong>{shortAddress(entry.player)}</strong>
@@ -340,6 +354,22 @@ export default function VibeBlocks({
             </div>
           )) : (
             <div className="leaderboard-empty">No ranked scores yet</div>
+          )}
+        </div>
+
+        <div className="leaderboard-header secondary">
+          <Trophy size={20} />
+          <span>Total Score</span>
+        </div>
+        <div className="leaderboard-list">
+          {totalLeaderboard.length ? totalLeaderboard.map((entry, index) => (
+            <div className="leaderboard-row" key={entry.player}>
+              <span>#{index + 1}</span>
+              <strong>{shortAddress(entry.player)}</strong>
+              <em>{entry.score}</em>
+            </div>
+          )) : (
+            <div className="leaderboard-empty">No total scores yet</div>
           )}
         </div>
       </div>

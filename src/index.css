@@ -764,6 +764,14 @@ input {
   margin: 0 auto;
 }
 
+.leaderboard-page-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
 .game-topbar {
   display: flex;
   justify-content: space-between;
@@ -829,6 +837,20 @@ input {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   touch-action: none;
+}
+
+.game-locked-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(158, 127, 255, 0.1);
+  border: 1px solid rgba(158, 127, 255, 0.25);
+  color: var(--text-secondary);
+  font-weight: 700;
 }
 
 .vibe-tile {
@@ -917,6 +939,10 @@ input {
   color: var(--gold);
   font-weight: 800;
   margin-bottom: 14px;
+}
+
+.leaderboard-header.secondary {
+  margin-top: 22px;
 }
 
 .leaderboard-list {
@@ -2012,6 +2038,10 @@ input {
   }
 
   .game-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-page-grid {
     grid-template-columns: 1fr;
   }
 }

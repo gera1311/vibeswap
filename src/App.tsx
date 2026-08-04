@@ -186,7 +186,7 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
-  const { data: gameActiveRun, refetch: refetchGameActiveRun } = useReadContract({
+  const { refetch: refetchGameActiveRun } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
     functionName: 'activeRun',
@@ -202,10 +202,25 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed && !!address },
   })
+  const { data: gameTotalScore, refetch: refetchGameTotalScore } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'totalScore',
+    args: [address!],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed && !!address },
+  })
   const { data: gameTopScores, refetch: refetchGameTopScores } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
     functionName: 'getTopScores',
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: gameTopTotalScores, refetch: refetchGameTopTotalScores } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getTopTotalScores',
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
@@ -252,6 +267,11 @@ export default function App() {
   const gameLeaderboard = gameTopScores
     ? gameTopScores[0]
       .map((player, index) => ({ player, score: Number(gameTopScores[1][index]) }))
+      .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
+    : []
+  const gameTotalLeaderboard = gameTopTotalScores
+    ? gameTopTotalScores[0]
+      .map((player, index) => ({ player, score: Number(gameTopTotalScores[1][index]) }))
       .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
     : []
 
@@ -403,13 +423,15 @@ export default function App() {
     void Promise.all([
       refetchGameActiveRun(),
       refetchGameBestScore(),
+      refetchGameTotalScore(),
       refetchGameTopScores(),
+      refetchGameTopTotalScores(),
       refreshContractReads(),
     ])
 
     const timeout = window.setTimeout(() => resetGameSubmit(), 2500)
     return () => window.clearTimeout(timeout)
-  }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTopScores, refreshContractReads, resetGameSubmit])
+  }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTopScores, refetchGameTopTotalScores, refetchGameTotalScore, refreshContractReads, resetGameSubmit])
 
   const wrongNetwork = isConnected && chainId !== litVM.id
 
@@ -477,22 +499,24 @@ export default function App() {
                 <Gamepad2 size={24} />
                 Vibe Blocks
               </h2>
-              <p className="section-subtitle">Play free runs or enter ranked onchain runs on LitVM</p>
+              <p className="section-subtitle">Enter ranked onchain runs and climb two leaderboards on LitVM</p>
             </div>
             <VibeBlocks
               isConnected={isConnected}
               wrongNetwork={wrongNetwork}
               onChain={onChain}
               rankedEnabled={isVibeGameDeployed}
-              rankedActive={gameActiveRun === true}
               entryFee={gameEntryFeeFormatted}
               bestScore={gameBestScore ? Number(gameBestScore) : 0}
-              leaderboard={gameLeaderboard}
+              totalScore={gameTotalScore ? Number(gameTotalScore) : 0}
+              bestLeaderboard={gameLeaderboard}
+              totalLeaderboard={gameTotalLeaderboard}
               onStartRanked={handleStartRankedRun}
               onSubmitScore={handleSubmitGameScore}
               startPending={gameStartPending || gameStartConfirming}
-              startSuccess={gameStartSuccess}
+              startSubmitted={!!gameStartHash}
               submitPending={gameSubmitPending || gameSubmitConfirming}
+              submitSuccess={gameSubmitSuccess}
               txUrl={txUrl(gameSubmitHash || gameStartHash)}
               txError={gameError}
             />
@@ -510,19 +534,42 @@ export default function App() {
                 <Trophy size={24} />
                 Leaderboard
               </h2>
-              <p className="section-subtitle">Top ranked Vibe Blocks runs recorded onchain</p>
+              <p className="section-subtitle">Best single runs and accumulated seasonal points recorded onchain</p>
             </div>
-            <div className="leaderboard-card standalone">
-              <div className="leaderboard-list">
-                {gameLeaderboard.length ? gameLeaderboard.map((entry, index) => (
-                  <div className="leaderboard-row" key={entry.player}>
-                    <span>#{index + 1}</span>
-                    <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
-                    <em>{entry.score}</em>
-                  </div>
-                )) : (
-                  <div className="leaderboard-empty">No ranked scores yet</div>
-                )}
+            <div className="leaderboard-page-grid">
+              <div className="leaderboard-card standalone">
+                <div className="leaderboard-header">
+                  <Trophy size={20} />
+                  <span>Best Score</span>
+                </div>
+                <div className="leaderboard-list">
+                  {gameLeaderboard.length ? gameLeaderboard.map((entry, index) => (
+                    <div className="leaderboard-row" key={entry.player}>
+                      <span>#{index + 1}</span>
+                      <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
+                      <em>{entry.score}</em>
+                    </div>
+                  )) : (
+                    <div className="leaderboard-empty">No ranked scores yet</div>
+                  )}
+                </div>
+              </div>
+              <div className="leaderboard-card standalone">
+                <div className="leaderboard-header">
+                  <Trophy size={20} />
+                  <span>Total Score</span>
+                </div>
+                <div className="leaderboard-list">
+                  {gameTotalLeaderboard.length ? gameTotalLeaderboard.map((entry, index) => (
+                    <div className="leaderboard-row" key={entry.player}>
+                      <span>#{index + 1}</span>
+                      <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
+                      <em>{entry.score}</em>
+                    </div>
+                  )) : (
+                    <div className="leaderboard-empty">No total scores yet</div>
+                  )}
+                </div>
               </div>
             </div>
           </section>
