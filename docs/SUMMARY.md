@@ -1,3 +1,17 @@
 # Summary
 
-* [Vibeswap](README.md)
+* [Getting Started](README.md)
+  * [Introduction](getting-started/introduction.md)
+  * [Getting Started](getting-started/getting-started.md)
+* [Product](product/README.md)
+  * [GM](product/gm.md)
+  * [Vibe](product/vibe.md)
+  * [Swaps](product/swaps.md)
+* [Contests and Economic Model](economics/README.md)
+  * [$VBS Token](economics/vbs-token.md)
+  * [Treasury](economics/treasury.md)
+  * [Fee Distribution](economics/fee-distribution.md)
+* [Security](security/README.md)
+  * [Security](security/security.md)
+  * [Smart Contracts](security/smart-contracts.md)
+* [Roadmap](roadmap.md)
