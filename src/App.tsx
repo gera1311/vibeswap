@@ -20,6 +20,8 @@ type Page = 'game' | 'swap' | 'gm' | 'nft' | 'faucet' | 'leaderboard' | 'network
 type NavGroup = 'gm' | 'vibe' | 'swap'
 
 const explorerBaseUrl = litVM.blockExplorers?.default.url.replace(/\/$/, '')
+const docsUrl = 'https://docs.vibeswap.net'
+const xUrl = 'https://x.com/Vibeswapnet'
 
 function txUrl(hash?: `0x${string}`) {
   return hash ? `${explorerBaseUrl}/tx/${hash}` : undefined
@@ -814,6 +816,10 @@ export default function App() {
           <div className="footer-logo">
             <Sun size={18} />
             <span>Vibeswap</span>
+          </div>
+          <div className="footer-links">
+            <a href={docsUrl} target="_blank" rel="noreferrer">Docs</a>
+            <a href={xUrl} target="_blank" rel="noreferrer">X</a>
           </div>
           <p className="footer-credit">Made by <a href="https://dappit.io" target="_blank" rel="noreferrer">dappit.io</a></p>
         </div>
