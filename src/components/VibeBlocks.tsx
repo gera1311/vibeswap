@@ -1,5 +1,5 @@
 import React from 'react'
-import { Gamepad2, Trophy, Wallet, Zap } from 'lucide-react'
+import { Gamepad2, Trophy, Wallet, Zap, Gift } from 'lucide-react'
 
 type Board = number[][]
 
@@ -19,17 +19,33 @@ interface VibeBlocksProps {
   bestLeaderboard: LeaderboardEntry[]
   totalLeaderboard: LeaderboardEntry[]
   onStartRanked: () => void
-  onSubmitScore: (score: number) => void
+  onSubmitScore: (score: number, maxBlock: number) => void
   startPending: boolean
   startSubmitted: boolean
   submitPending: boolean
   submitSuccess: boolean
   txUrl?: string
   txError?: string
+  blockNftDeployed: boolean
+  mintedByTier: boolean[]
+  mintFee: string
+  onMint: (tier: number, maxTile: number) => void
+  mintPending: boolean
+  nftReady: boolean
+  connectedAddress?: string
+  blockNftTxUrl?: string
+  blockNftTxError?: string
 }
 
 const BOARD_SIZE = 4
 const START_TILE = 2
+
+const BLOCK_TIERS = [
+  { tier: 1, block: 512, label: '512', legendary: false },
+  { tier: 2, block: 1024, label: '1024', legendary: false },
+  { tier: 3, block: 2048, label: '2048', legendary: false },
+  { tier: 4, block: 4096, label: '4096', legendary: true },
+]
 
 function emptyBoard(): Board {
   return Array.from({ length: BOARD_SIZE }, () => Array.from({ length: BOARD_SIZE }, () => 0))
@@ -126,6 +142,7 @@ function hasMoves(board: Board) {
 
 function tileClass(value: number) {
   if (!value) return 'tile-empty'
+  if (value >= 4096) return 'tile-4096'
   if (value >= 2048) return 'tile-2048'
   return `tile-${value}`
 }
@@ -152,6 +169,15 @@ export default function VibeBlocks({
   submitSuccess,
   txUrl,
   txError,
+  blockNftDeployed,
+  mintedByTier,
+  mintFee,
+  onMint,
+  mintPending,
+  nftReady,
+  connectedAddress,
+  blockNftTxUrl,
+  blockNftTxError,
 }: VibeBlocksProps) {
   const [board, setBoard] = React.useState<Board>(() => emptyBoard())
   const [score, setScore] = React.useState(0)
@@ -160,6 +186,10 @@ export default function VibeBlocks({
   const [scoreSubmitted, setScoreSubmitted] = React.useState(false)
   const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null)
   const previousStartSubmitted = React.useRef(false)
+  const autoMintedRef = React.useRef<Set<number>>(new Set())
+
+  const maxTile = Math.max(0, ...board.flat())
+  const activeRun = runStarted && !gameOver
 
   const resetGame = React.useCallback(() => {
     setBoard(createBoard())
@@ -167,6 +197,7 @@ export default function VibeBlocks({
     setRunStarted(true)
     setGameOver(false)
     setScoreSubmitted(false)
+    autoMintedRef.current = new Set()
   }, [])
 
   const performMove = React.useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
@@ -195,13 +226,23 @@ export default function VibeBlocks({
     if (!gameOver || !runStarted || scoreSubmitted || submitPending || score <= 0) return
 
     setScoreSubmitted(true)
-    onSubmitScore(score)
-  }, [gameOver, onSubmitScore, runStarted, score, scoreSubmitted, submitPending])
+    onSubmitScore(score, maxTile)
+  }, [gameOver, maxTile, onSubmitScore, runStarted, score, scoreSubmitted, submitPending])
 
   React.useEffect(() => {
     if (!submitSuccess) return
     setRunStarted(false)
   }, [submitSuccess])
+
+  React.useEffect(() => {
+    if (!blockNftDeployed || !nftReady || !activeRun || !onChain || mintPending) return
+
+    const tier = BLOCK_TIERS.find(t => maxTile >= t.block && !mintedByTier[t.tier] && !autoMintedRef.current.has(t.tier))
+    if (!tier) return
+
+    autoMintedRef.current.add(tier.tier)
+    onMint(tier.tier, maxTile)
+  }, [blockNftDeployed, nftReady, activeRun, onChain, mintPending, maxTile, mintedByTier, onMint])
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -315,6 +356,47 @@ export default function VibeBlocks({
           </button>
         </div>
 
+        {blockNftDeployed && (
+          <div className="block-achievements">
+            <div className="block-achievements-title">
+              <Gift size={16} />
+              <span>Block Achievements · {mintFee} zkLTC</span>
+            </div>
+            <div className="block-achievement-grid">
+              {BLOCK_TIERS.map(t => {
+                const reached = maxTile >= t.block
+                const minted = mintedByTier[t.tier] === true
+
+                return (
+                  <div
+                    key={t.tier}
+                    className={`block-achievement ${minted ? 'minted' : reached ? 'reached' : 'locked'} ${t.legendary ? 'legendary' : ''}`}
+                  >
+                    <span className="block-achievement-block">{t.label}</span>
+                    {minted ? (
+                      <span className="block-achievement-minted">Minted</span>
+                    ) : reached ? (
+                      <span className="block-achievement-minting">{mintPending ? 'Minting...' : 'Unlocked'}</span>
+                    ) : (
+                      <span className="block-achievement-locked">Reach {t.block}</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {blockNftTxUrl && (
+              <a className="tx-link" href={blockNftTxUrl} target="_blank" rel="noreferrer">
+                View mint transaction
+              </a>
+            )}
+
+            {blockNftTxError && (
+              <div className="swap-warning">{blockNftTxError}</div>
+            )}
+          </div>
+        )}
+
         {!isConnected && (
           <div className="game-notice">
             <Wallet size={16} />
@@ -346,13 +428,16 @@ export default function VibeBlocks({
           <span>Best Score</span>
         </div>
         <div className="leaderboard-list">
-          {bestLeaderboard.length ? bestLeaderboard.map((entry, index) => (
-            <div className="leaderboard-row" key={entry.player}>
-              <span>#{index + 1}</span>
-              <strong>{shortAddress(entry.player)}</strong>
-              <em>{entry.score}</em>
-            </div>
-          )) : (
+          {bestLeaderboard.length ? bestLeaderboard.map((entry, index) => {
+            const isCurrent = connectedAddress && entry.player.toLowerCase() === connectedAddress.toLowerCase()
+            return (
+              <div className={`leaderboard-row ${isCurrent ? 'current' : ''}`} key={entry.player}>
+                <span>#{index + 1}</span>
+                <strong>{shortAddress(entry.player)}</strong>
+                <em>{entry.score}</em>
+              </div>
+            )
+          }) : (
             <div className="leaderboard-empty">No ranked scores yet</div>
           )}
         </div>
@@ -362,13 +447,16 @@ export default function VibeBlocks({
           <span>Total Score</span>
         </div>
         <div className="leaderboard-list">
-          {totalLeaderboard.length ? totalLeaderboard.map((entry, index) => (
-            <div className="leaderboard-row" key={entry.player}>
-              <span>#{index + 1}</span>
-              <strong>{shortAddress(entry.player)}</strong>
-              <em>{entry.score}</em>
-            </div>
-          )) : (
+          {totalLeaderboard.length ? totalLeaderboard.map((entry, index) => {
+            const isCurrent = connectedAddress && entry.player.toLowerCase() === connectedAddress.toLowerCase()
+            return (
+              <div className={`leaderboard-row ${isCurrent ? 'current' : ''}`} key={entry.player}>
+                <span>#{index + 1}</span>
+                <strong>{shortAddress(entry.player)}</strong>
+                <em>{entry.score}</em>
+              </div>
+            )
+          }) : (
             <div className="leaderboard-empty">No total scores yet</div>
           )}
         </div>
