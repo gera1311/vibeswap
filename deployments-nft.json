@@ -1,0 +1,10 @@
+{
+  "chainId": 4441,
+  "contract": "GMBadgeNFT",
+  "address": "0xc3e422a3922dab5f1192dc5471892812bb8a2da3",
+  "gm": "0x2791bb410616779a2d50bf4a3223afea51c8a656",
+  "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+  "mintFeeZkLTC": "0.005",
+  "transactionHash": "0x25182390777651c3e63c3cdefb61c5db9eaa6cd7fc651d9c4d15911ad41b629d",
+  "blockNumber": "44141046"
+}

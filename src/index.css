@@ -1201,6 +1201,44 @@ input {
   cursor: default;
 }
 
+.gm-mint-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  transition: all 0.3s;
+  width: 100%;
+  max-width: 280px;
+  margin-top: 16px;
+}
+
+.gm-mint-btn:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.1);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+}
+
+.gm-mint-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.gm-minted-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gold);
+  margin-top: 16px;
+}
+
+
 /* ========== NFT GALLERY ========== */
 .nft-gallery {
   max-width: 900px;
@@ -1329,6 +1367,47 @@ input {
   border-radius: 50px;
   background: var(--bg);
   border: 1px solid var(--border);
+}
+
+.badge-mint-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #1a1a1a;
+  transition: all 0.3s;
+  margin-top: 8px;
+  width: 100%;
+  max-width: 220px;
+}
+
+.badge-mint-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.badge-mint-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.badge-earned-badge.badge-minted {
+  background: rgba(251, 191, 36, 0.22);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.badge-holders {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
 }
 
 /* ========== FAUCET ========== */

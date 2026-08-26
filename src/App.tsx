@@ -1,11 +1,12 @@
 import React, { useState, useRef, Suspense } from 'react'
-import { useAccount, useConnect, useDisconnect, useSwitchChain, useBalance, useBlockNumber, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useSwitchChain, useBalance, useBlockNumber, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
 import { Sun, ArrowRightLeft, Sparkles, Gift, Flame, Wallet, LogOut, Menu, X, Droplets, ExternalLink, Gamepad2, Trophy } from 'lucide-react'
 import { litVM } from './wagmi'
 import { vbUSDCAddress, vbUSDCApi } from './contracts/vbUSDC'
 import { gmAddress, gmAbi } from './contracts/GM'
+import { gmBadgeNFTAddress, gmBadgeNFTAbi, isGMBadgeNFTDeployed } from './contracts/GMBadgeNFT'
 import { swapAddress, swapAbi } from './contracts/Swap'
 import { vibeGameAddress, vibeGameAbi, isVibeGameDeployed } from './contracts/VibeGame'
 import SunSphere from './components/SunSphere'
@@ -42,6 +43,18 @@ function txErrorMessage(error?: (Error & { shortMessage?: string }) | null) {
 
   if (message.includes('already claimed')) {
     return 'Cooldown is active. Try again when the timer ends.'
+  }
+
+  if (message.includes('already minted')) {
+    return 'You already minted this badge.'
+  }
+
+  if (message.includes('streak not reached')) {
+    return 'Reach the required streak before minting this badge.'
+  }
+
+  if (message.includes('invalid mint fee')) {
+    return 'Invalid mint fee.'
   }
 
   if (message.includes('insufficient vbusdc reserve') || message.includes('insufficient zkltc reserve')) {
@@ -226,18 +239,43 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
+  const { data: nftMintFee } = useReadContract({
+    abi: gmBadgeNFTAbi,
+    address: gmBadgeNFTAddress,
+    functionName: 'mintFee',
+    chainId: litVM.id,
+    query: { enabled: isGMBadgeNFTDeployed },
+  })
+  const { data: nftHolderCounts, refetch: refetchNFTHolders } = useReadContracts({
+    contracts: [
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'holdersCount', args: [1n], chainId: litVM.id },
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'holdersCount', args: [2n], chainId: litVM.id },
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'holdersCount', args: [3n], chainId: litVM.id },
+    ],
+    query: { enabled: isGMBadgeNFTDeployed },
+  })
+  const { data: nftMinted, refetch: refetchNFTMinted } = useReadContracts({
+    contracts: [
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'hasMinted', args: [address!, 1n], chainId: litVM.id },
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'hasMinted', args: [address!, 2n], chainId: litVM.id },
+      { abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'hasMinted', args: [address!, 3n], chainId: litVM.id },
+    ],
+    query: { enabled: isGMBadgeNFTDeployed && !!address },
+  })
   const { writeContract: writeFaucet, data: faucetHash, isPending: faucetPending, error: faucetWriteError, reset: resetFaucet } = useWriteContract()
   const { writeContract: writeGM, data: gmHash, isPending: gmPending, error: gmWriteError, reset: resetGM } = useWriteContract()
   const { writeContract: writeApprove, data: approveHash, isPending: approvePending, error: approveWriteError, reset: resetApprove } = useWriteContract()
   const { writeContract: writeSwap, data: swapHash, isPending: swapPending, error: swapWriteError, reset: resetSwap } = useWriteContract()
   const { writeContract: writeGameStart, data: gameStartHash, isPending: gameStartPending, error: gameStartWriteError, reset: resetGameStart } = useWriteContract()
   const { writeContract: writeGameSubmit, data: gameSubmitHash, isPending: gameSubmitPending, error: gameSubmitWriteError, reset: resetGameSubmit } = useWriteContract()
+  const { writeContract: writeMint, data: mintHash, isPending: mintPending, error: mintWriteError, reset: resetMint } = useWriteContract()
   const { isLoading: faucetConfirming, isSuccess: faucetSuccess, error: faucetReceiptError } = useWaitForTransactionReceipt({ hash: faucetHash, chainId: litVM.id })
   const { isLoading: gmConfirming, isSuccess: gmSuccess, error: gmReceiptError } = useWaitForTransactionReceipt({ hash: gmHash, chainId: litVM.id })
   const { isLoading: approveConfirming, isSuccess: approveSuccess, error: approveReceiptError } = useWaitForTransactionReceipt({ hash: approveHash, chainId: litVM.id })
   const { isLoading: swapConfirming, isSuccess: swapSuccess, error: swapReceiptError } = useWaitForTransactionReceipt({ hash: swapHash, chainId: litVM.id })
   const { isLoading: gameStartConfirming, isSuccess: gameStartSuccess, error: gameStartReceiptError } = useWaitForTransactionReceipt({ hash: gameStartHash, chainId: litVM.id })
   const { isLoading: gameSubmitConfirming, isSuccess: gameSubmitSuccess, error: gameSubmitReceiptError } = useWaitForTransactionReceipt({ hash: gameSubmitHash, chainId: litVM.id })
+  const { isLoading: mintConfirming, isSuccess: mintSuccess, error: mintReceiptError } = useWaitForTransactionReceipt({ hash: mintHash, chainId: litVM.id })
   const [menuOpen, setMenuOpen] = useState(false)
   const [gmPulsing, setGmPulsing] = useState(false)
   const [pendingSwapAmount, setPendingSwapAmount] = useState<bigint | null>(null)
@@ -256,6 +294,10 @@ export default function App() {
   const faucetFeeFormatted = formatEther(faucetFeeValue)
   const swapFeeFormatted = formatEther(swapFeeValue)
   const gameEntryFeeFormatted = formatEther(gameEntryFeeValue)
+  const nftMintFeeValue = nftMintFee ?? 0n
+  const nftMintFeeFormatted = formatEther(nftMintFeeValue)
+  const nftMintedByTier = [false, nftMinted?.[0]?.result === true, nftMinted?.[1]?.result === true, nftMinted?.[2]?.result === true]
+  const nftHoldersByTier = [0, nftHolderCounts?.[0]?.result ? Number(nftHolderCounts[0].result) : 0, nftHolderCounts?.[1]?.result ? Number(nftHolderCounts[1].result) : 0, nftHolderCounts?.[2]?.result ? Number(nftHolderCounts[2].result) : 0]
   const vbUSDCFormatted = vbUSDCBalance ? formatUnits(vbUSDCBalance, 6) : '0'
   const zkLTCFormatted = balance ? Number(formatUnits(balance.value, balance.decimals)).toLocaleString(undefined, { maximumFractionDigits: 6 }) : '0'
   const claimAmt = claimAmount ? formatUnits(claimAmount, 6) : '0.5'
@@ -266,6 +308,7 @@ export default function App() {
   const gmError = txErrorMessage(gmWriteError || gmReceiptError)
   const swapError = txErrorMessage(swapWriteError || swapReceiptError || approveWriteError || approveReceiptError)
   const gameError = txErrorMessage(gameStartWriteError || gameStartReceiptError || gameSubmitWriteError || gameSubmitReceiptError)
+  const mintError = txErrorMessage(mintWriteError || mintReceiptError)
   const gameLeaderboard = gameTopScores
     ? gameTopScores[0]
       .map((player, index) => ({ player, score: Number(gameTopScores[1][index]) }))
@@ -282,6 +325,11 @@ export default function App() {
     setGmPulsing(true)
     writeGM({ abi: gmAbi, address: gmAddress, functionName: 'gm', args: [], value: gmFeeValue })
     setTimeout(() => setGmPulsing(false), 600)
+  }
+
+  const handleMintNFT = (tier: number) => {
+    if (!isGMBadgeNFTDeployed || !onChain || mintPending || mintConfirming) return
+    writeMint({ abi: gmBadgeNFTAbi, address: gmBadgeNFTAddress, functionName: 'mint', args: [BigInt(tier)], value: nftMintFeeValue })
   }
 
   const handleFaucet = () => {
@@ -434,6 +482,19 @@ export default function App() {
     const timeout = window.setTimeout(() => resetGameSubmit(), 2500)
     return () => window.clearTimeout(timeout)
   }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTopScores, refetchGameTopTotalScores, refetchGameTotalScore, refreshContractReads, resetGameSubmit])
+
+  React.useEffect(() => {
+    if (!mintSuccess) return
+
+    void Promise.all([
+      refetchNFTMinted(),
+      refetchNFTHolders(),
+      refreshContractReads(),
+    ])
+
+    const timeout = window.setTimeout(() => resetMint(), 2500)
+    return () => window.clearTimeout(timeout)
+  }, [mintSuccess, refetchNFTMinted, refetchNFTHolders, refreshContractReads, resetMint])
 
   const wrongNetwork = isConnected && chainId !== litVM.id
 
@@ -663,6 +724,13 @@ export default function App() {
               gmFee={gmFeeFormatted}
               txUrl={txUrl(gmHash)}
               txError={gmError}
+              mintedByTier={nftMintedByTier}
+              mintFee={nftMintFeeFormatted}
+              onMint={handleMintNFT}
+              mintPending={mintPending || mintConfirming}
+              nftDeployed={isGMBadgeNFTDeployed}
+              mintTxUrl={txUrl(mintHash)}
+              mintTxError={mintError}
             />
           </section>
         )
@@ -680,7 +748,18 @@ export default function App() {
               </h2>
               <p className="section-subtitle">Earn illustrated badges by staying active</p>
             </div>
-            <NFTGallery claimedBadges={claimedBadges} />
+            <NFTGallery
+              claimedBadges={claimedBadges}
+              mintedByTier={nftMintedByTier}
+              holdersByTier={nftHoldersByTier}
+              mintFee={nftMintFeeFormatted}
+              onMint={handleMintNFT}
+              mintPending={mintPending || mintConfirming}
+              nftDeployed={isGMBadgeNFTDeployed}
+              onChain={onChain}
+              txUrl={txUrl(mintHash)}
+              txError={mintError}
+            />
           </section>
         )
       case 'network':
