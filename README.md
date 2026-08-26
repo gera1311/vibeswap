@@ -30,6 +30,12 @@ Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a p
   - daily GM by connected wallet
   - streak, total GM, claimed-today state
   - badge progress at 3, 10, and 30 days
+- GM badge NFTs:
+  - mint an NFT badge for each reached streak milestone (3, 10, and 30 days)
+  - `0.005 zkLTC` mint fee
+  - onchain streak verification (the NFT contract reads `GM.getStreak`)
+  - one mint per tier per wallet, soulbound (non-transferable)
+  - displays minted status and holder count per badge
 - Transaction states:
   - pending, confirming, success
   - readable error messages
@@ -54,6 +60,7 @@ GM:     0x2791bb410616779a2d50bf4a3223afea51c8a656
 vbUSDC: 0x5a9b445e43559c75c7b22befc3d471cc177069cc
 Swap:   0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
 Game:   0xf9d45161cf58b56ea14d65cb38b1a47056b3e766
+NFT:    0xc3e422a3922dab5f1192dc5471892812bb8a2da3
 ```
 
 ## Requirements
@@ -103,28 +110,6 @@ Copy the example env file:
 cp .env.example .env
 ```
 
-Fill values as needed:
-
-```bash
-PRIVATE_KEY=
-LITVM_RPC_URL=https://liteforge.rpc.caldera.xyz/http
-GM_TREASURY_ADDRESS=
-GM_FEE_ZKLTC=0.0001
-GAME_TREASURY_ADDRESS=
-GAME_ENTRY_FEE_ZKLTC=0.0051
-FEE_TREASURY_ADDRESS=
-FAUCET_FEE_ZKLTC=0.0002
-VBUSDC_CLAIM_AMOUNT=0.5
-VBUSDC_MAX_SUPPLY=10000000
-VBUSDC_INITIAL_OWNER_SUPPLY=1000000
-SWAP_FEE_ZKLTC=0.0002
-SWAP_RATE_VBUSDC_PER_ZKLTC=1000
-SWAP_INITIAL_VBUSDC_LIQUIDITY=100
-SWAP_INITIAL_ZKLTC_LIQUIDITY=0.1
-EXISTING_VBUSDC_ADDRESS=
-EXISTING_SWAP_ADDRESS=
-```
-
 Never commit `.env` or private keys.
 
 ## Contracts
@@ -132,6 +117,7 @@ Never commit `.env` or private keys.
 Solidity contracts live in [contracts](contracts).
 
 - [contracts/GM.sol](contracts/GM.sol)
+- [contracts/GMBadgeNFT.sol](contracts/GMBadgeNFT.sol)
 - [contracts/VibeGame.sol](contracts/VibeGame.sol)
 - [contracts/vbUSDC.sol](contracts/vbUSDC.sol)
 - [contracts/Swap.sol](contracts/Swap.sol)
@@ -153,6 +139,14 @@ npm run deploy:game
 ```
 
 This deploys the ranked game contract and updates `src/contracts/deployments.ts`.
+
+### Deploy GMBadgeNFT
+
+```bash
+npm run deploy:nft
+```
+
+This deploys the GM badge NFT contract (linked to the current `GM` address), writes `deployments-nft.json`, and updates `src/contracts/deployments.ts`. The mint fee defaults to `0.005 zkLTC` (`NFT_MINT_FEE_ZKLTC`) and the treasury falls back to `NFT_TREASURY_ADDRESS`, then `FEE_TREASURY_ADDRESS`, then `GM_TREASURY_ADDRESS`, then the deployer address.
 
 ### Deploy vbUSDC and Swap
 
@@ -202,6 +196,7 @@ zkLTC reserve: 0.11
 ## Useful Explorer Links
 
 - GM: https://liteforge.explorer.caldera.xyz/address/0x2791bb410616779a2d50bf4a3223afea51c8a656
+- GMBadgeNFT: https://liteforge.explorer.caldera.xyz/address/0xc3e422a3922dab5f1192dc5471892812bb8a2da3
 - vbUSDC: https://liteforge.explorer.caldera.xyz/address/0x5a9b445e43559c75c7b22befc3d471cc177069cc
 - Swap: https://liteforge.explorer.caldera.xyz/address/0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
 - Game: https://liteforge.explorer.caldera.xyz/address/0xf9d45161cf58b56ea14d65cb38b1a47056b3e766
