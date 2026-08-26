@@ -1,0 +1,10 @@
+{
+  "chainId": 4441,
+  "contract": "VibeBlockNFT",
+  "address": "0x3c9127210f08599bbbdc20305c8cef6a227dddb7",
+  "game": "0xbbfad21b55b624945d2b3a4e358d5c2e9962f725",
+  "treasury": "0x04FC23f8d162065bDefa4604Fd2C19434fa81BB5",
+  "mintFeeZkLTC": "0.002",
+  "transactionHash": "0xe0fcc3e3db8777d903e437ad6e4ff11d84b5c396abaab3a23b1733a8c8162fda",
+  "blockNumber": "44163638"
+}

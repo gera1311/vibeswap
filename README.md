@@ -13,7 +13,7 @@ Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a p
   - game starts as soon as the start transaction is submitted.
   - score is submitted automatically when the run ends.
   - onchain score submission.
-  - top-10 best-score and total-score onchain leaderboards.
+  - full onchain best-score and total-score leaderboards with pagination and page-size selection.
 - `vbUSDC` faucet:
   - `0.5 vbUSDC` per claim.
   - 24 hour cooldown per wallet.
@@ -36,6 +36,11 @@ Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a p
   - onchain streak verification (the NFT contract reads `GM.getStreak`)
   - one mint per tier per wallet, soulbound (non-transferable)
   - displays minted status and holder count per badge
+- Vibe Blocks block achievements:
+  - NFT for reaching the 512, 1024, 2048, and legendary 4096 tiles
+  - `0.002 zkLTC` mint fee
+  - minted automatically during an active ranked run when the tile is reached (once per tier)
+  - onchain verification via `VibeGame.maxBlock` and `VibeGame.activeRun`
 - Transaction states:
   - pending, confirming, success
   - readable error messages
@@ -59,8 +64,9 @@ Current deployed contracts are defined in [src/contracts/deployments.ts](src/con
 GM:     0x2791bb410616779a2d50bf4a3223afea51c8a656
 vbUSDC: 0x5a9b445e43559c75c7b22befc3d471cc177069cc
 Swap:   0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
-Game:   0xf9d45161cf58b56ea14d65cb38b1a47056b3e766
+Game:   0xbbfad21b55b624945d2b3a4e358d5c2e9962f725
 NFT:    0xc3e422a3922dab5f1192dc5471892812bb8a2da3
+BlockNFT: 0x3c9127210f08599bbbdc20305c8cef6a227dddb7
 ```
 
 ## Requirements
@@ -119,6 +125,7 @@ Solidity contracts live in [contracts](contracts).
 - [contracts/GM.sol](contracts/GM.sol)
 - [contracts/GMBadgeNFT.sol](contracts/GMBadgeNFT.sol)
 - [contracts/VibeGame.sol](contracts/VibeGame.sol)
+- [contracts/VibeBlockNFT.sol](contracts/VibeBlockNFT.sol)
 - [contracts/vbUSDC.sol](contracts/vbUSDC.sol)
 - [contracts/Swap.sol](contracts/Swap.sol)
 
@@ -147,6 +154,22 @@ npm run deploy:nft
 ```
 
 This deploys the GM badge NFT contract (linked to the current `GM` address), writes `deployments-nft.json`, and updates `src/contracts/deployments.ts`. The mint fee defaults to `0.005 zkLTC` (`NFT_MINT_FEE_ZKLTC`) and the treasury falls back to `NFT_TREASURY_ADDRESS`, then `FEE_TREASURY_ADDRESS`, then `GM_TREASURY_ADDRESS`, then the deployer address.
+
+### Deploy VibeBlockNFT
+
+```bash
+npm run deploy:blocknft
+```
+
+This deploys the block achievement NFT contract (linked to the current `VibeGame` address), writes `deployments-block-nft.json`, and updates `src/contracts/deployments.ts`. The mint fee defaults to `0.002 zkLTC` (`BLOCK_NFT_MINT_FEE_ZKLTC`) and the treasury falls back to `BLOCK_NFT_TREASURY_ADDRESS`, then `FEE_TREASURY_ADDRESS`, then `GAME_TREASURY_ADDRESS`, then the deployer address.
+
+### Migrate Leaderboard
+
+```bash
+node scripts/migrate-game.js
+```
+
+Redeploying `VibeGame` creates an empty leaderboard. Run this script after a redeploy to copy the previous best-score and total-score results from the legacy contract into the new one (`LEGACY_GAME_ADDRESS` in `.env`, defaults to the previous deployment).
 
 ### Deploy vbUSDC and Swap
 
@@ -199,4 +222,5 @@ zkLTC reserve: 0.11
 - GMBadgeNFT: https://liteforge.explorer.caldera.xyz/address/0xc3e422a3922dab5f1192dc5471892812bb8a2da3
 - vbUSDC: https://liteforge.explorer.caldera.xyz/address/0x5a9b445e43559c75c7b22befc3d471cc177069cc
 - Swap: https://liteforge.explorer.caldera.xyz/address/0x96f48a300bb96f97f639cea3fe10f19ab34a6d7d
-- Game: https://liteforge.explorer.caldera.xyz/address/0xf9d45161cf58b56ea14d65cb38b1a47056b3e766
+- Game: https://liteforge.explorer.caldera.xyz/address/0xbbfad21b55b624945d2b3a4e358d5c2e9962f725
+- VibeBlockNFT: https://liteforge.explorer.caldera.xyz/address/0x3c9127210f08599bbbdc20305c8cef6a227dddb7

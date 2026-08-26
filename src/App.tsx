@@ -9,6 +9,7 @@ import { gmAddress, gmAbi } from './contracts/GM'
 import { gmBadgeNFTAddress, gmBadgeNFTAbi, isGMBadgeNFTDeployed } from './contracts/GMBadgeNFT'
 import { swapAddress, swapAbi } from './contracts/Swap'
 import { vibeGameAddress, vibeGameAbi, isVibeGameDeployed } from './contracts/VibeGame'
+import { vibeBlockNFTAddress, vibeBlockNFTAbi, isVibeBlockNFTDeployed } from './contracts/VibeBlockNFT'
 import SunSphere from './components/SunSphere'
 import VibeBlocks from './components/VibeBlocks'
 import SwapPanel, { type SwapDirection } from './components/SwapPanel'
@@ -57,6 +58,14 @@ function txErrorMessage(error?: (Error & { shortMessage?: string }) | null) {
     return 'Invalid mint fee.'
   }
 
+  if (message.includes('no active run')) {
+    return 'Start an active ranked run to mint block achievements.'
+  }
+
+  if (message.includes('block not reached')) {
+    return 'Reach the required block before minting this achievement.'
+  }
+
   if (message.includes('insufficient vbusdc reserve') || message.includes('insufficient zkltc reserve')) {
     return 'Insufficient pool liquidity for this swap.'
   }
@@ -72,6 +81,59 @@ function txErrorMessage(error?: (Error & { shortMessage?: string }) | null) {
   return error.shortMessage || error.message.split('\n')[0]
 }
 
+interface LeaderboardCardProps {
+  title: string
+  entries: Array<{ player: string; score: number }>
+  totalCount: number
+  page: number
+  pageSize: number
+  connectedAddress?: string
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+}
+
+function LeaderboardCard({ title, entries, totalCount, page, pageSize, connectedAddress, onPageChange, onPageSizeChange }: LeaderboardCardProps) {
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  return (
+    <div className="leaderboard-card standalone">
+      <div className="leaderboard-header">
+        <Trophy size={20} />
+        <span>{title}</span>
+      </div>
+      <div className="leaderboard-list">
+        {entries.length ? entries.map((entry, index) => {
+          const isCurrent = connectedAddress && entry.player.toLowerCase() === connectedAddress.toLowerCase()
+          return (
+            <div className={`leaderboard-row ${isCurrent ? 'current' : ''}`} key={entry.player}>
+              <span>#{page * pageSize + index + 1}</span>
+              <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
+              <em>{entry.score}</em>
+            </div>
+          )
+        }) : (
+          <div className="leaderboard-empty">No ranked scores yet</div>
+        )}
+      </div>
+      <div className="pagination">
+        <button type="button" onClick={() => onPageChange(page - 1)} disabled={page === 0}>Prev</button>
+        <span className="pagination-status">Page {page + 1} / {totalPages}</span>
+        <button type="button" onClick={() => onPageChange(page + 1)} disabled={page + 1 >= totalPages}>Next</button>
+        <label className="pagination-size">
+          Show
+          <select value={pageSize} onChange={e => onPageSizeChange(Number(e.target.value))}>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </label>
+        <span className="pagination-total">{totalCount} players</span>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const { address, isConnected, chainId } = useAccount()
   const { connect, connectors, isPending: connecting, error: connectError } = useConnect()
@@ -79,6 +141,11 @@ export default function App() {
   const { switchChain } = useSwitchChain()
   const queryClient = useQueryClient()
   const onChain = isConnected && chainId === litVM.id
+  const [lbPageSize, setLbPageSize] = useState(10)
+  const [bestPage, setBestPage] = useState(0)
+  const [totalPage, setTotalPage] = useState(0)
+  const [pendingMintTier, setPendingMintTier] = useState<number | null>(null)
+  const [blockMintBusy, setBlockMintBusy] = useState(false)
   const { data: blockNumber } = useBlockNumber({
     chainId: litVM.id,
     watch: true,
@@ -225,17 +292,57 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed && !!address },
   })
-  const { data: gameTopScores, refetch: refetchGameTopScores } = useReadContract({
+  const { data: gameMaxBlock, refetch: refetchGameMaxBlock } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
-    functionName: 'getTopScores',
+    functionName: 'maxBlock',
+    args: [address!],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed && !!address },
+  })
+  const { data: bestCount } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getBestScoreCount',
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
-  const { data: gameTopTotalScores, refetch: refetchGameTopTotalScores } = useReadContract({
+  const { data: totalCount } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
-    functionName: 'getTopTotalScores',
+    functionName: 'getTotalScoreCount',
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: bestTopData, refetch: refetchBestTop } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getBestScorePage',
+    args: [0n, 10n],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: totalTopData, refetch: refetchTotalTop } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getTotalScorePage',
+    args: [0n, 10n],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: bestPageData, refetch: refetchBestPage } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getBestScorePage',
+    args: [BigInt(bestPage * lbPageSize), BigInt(lbPageSize)],
+    chainId: litVM.id,
+    query: { enabled: isVibeGameDeployed },
+  })
+  const { data: totalPageData, refetch: refetchTotalPage } = useReadContract({
+    abi: vibeGameAbi,
+    address: vibeGameAddress,
+    functionName: 'getTotalScorePage',
+    args: [BigInt(totalPage * lbPageSize), BigInt(lbPageSize)],
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
@@ -262,6 +369,31 @@ export default function App() {
     ],
     query: { enabled: isGMBadgeNFTDeployed && !!address },
   })
+  const { data: blockNftMintFee } = useReadContract({
+    abi: vibeBlockNFTAbi,
+    address: vibeBlockNFTAddress,
+    functionName: 'mintFee',
+    chainId: litVM.id,
+    query: { enabled: isVibeBlockNFTDeployed },
+  })
+  const { data: blockNftMinted, refetch: refetchBlockNftMinted } = useReadContracts({
+    contracts: [
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'hasMinted', args: [address!, 1n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'hasMinted', args: [address!, 2n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'hasMinted', args: [address!, 3n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'hasMinted', args: [address!, 4n], chainId: litVM.id },
+    ],
+    query: { enabled: isVibeBlockNFTDeployed && !!address },
+  })
+  const { data: blockNftHolders, refetch: refetchBlockNftHolders } = useReadContracts({
+    contracts: [
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'holdersCount', args: [1n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'holdersCount', args: [2n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'holdersCount', args: [3n], chainId: litVM.id },
+      { abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'holdersCount', args: [4n], chainId: litVM.id },
+    ],
+    query: { enabled: isVibeBlockNFTDeployed },
+  })
   const { writeContract: writeFaucet, data: faucetHash, isPending: faucetPending, error: faucetWriteError, reset: resetFaucet } = useWriteContract()
   const { writeContract: writeGM, data: gmHash, isPending: gmPending, error: gmWriteError, reset: resetGM } = useWriteContract()
   const { writeContract: writeApprove, data: approveHash, isPending: approvePending, error: approveWriteError, reset: resetApprove } = useWriteContract()
@@ -269,6 +401,8 @@ export default function App() {
   const { writeContract: writeGameStart, data: gameStartHash, isPending: gameStartPending, error: gameStartWriteError, reset: resetGameStart } = useWriteContract()
   const { writeContract: writeGameSubmit, data: gameSubmitHash, isPending: gameSubmitPending, error: gameSubmitWriteError, reset: resetGameSubmit } = useWriteContract()
   const { writeContract: writeMint, data: mintHash, isPending: mintPending, error: mintWriteError, reset: resetMint } = useWriteContract()
+  const { writeContract: writeReportMaxBlock, data: reportHash, isPending: reportPending, error: reportWriteError, reset: resetReport } = useWriteContract()
+  const { writeContract: writeMintBlock, data: mintBlockHash, isPending: mintBlockPending, error: mintBlockWriteError, reset: resetMintBlock } = useWriteContract()
   const { isLoading: faucetConfirming, isSuccess: faucetSuccess, error: faucetReceiptError } = useWaitForTransactionReceipt({ hash: faucetHash, chainId: litVM.id })
   const { isLoading: gmConfirming, isSuccess: gmSuccess, error: gmReceiptError } = useWaitForTransactionReceipt({ hash: gmHash, chainId: litVM.id })
   const { isLoading: approveConfirming, isSuccess: approveSuccess, error: approveReceiptError } = useWaitForTransactionReceipt({ hash: approveHash, chainId: litVM.id })
@@ -276,6 +410,8 @@ export default function App() {
   const { isLoading: gameStartConfirming, isSuccess: gameStartSuccess, error: gameStartReceiptError } = useWaitForTransactionReceipt({ hash: gameStartHash, chainId: litVM.id })
   const { isLoading: gameSubmitConfirming, isSuccess: gameSubmitSuccess, error: gameSubmitReceiptError } = useWaitForTransactionReceipt({ hash: gameSubmitHash, chainId: litVM.id })
   const { isLoading: mintConfirming, isSuccess: mintSuccess, error: mintReceiptError } = useWaitForTransactionReceipt({ hash: mintHash, chainId: litVM.id })
+  const { isLoading: reportConfirming, isSuccess: reportSuccess, error: reportReceiptError } = useWaitForTransactionReceipt({ hash: reportHash, chainId: litVM.id })
+  const { isLoading: mintBlockConfirming, isSuccess: mintBlockSuccess, error: mintBlockReceiptError } = useWaitForTransactionReceipt({ hash: mintBlockHash, chainId: litVM.id })
   const [menuOpen, setMenuOpen] = useState(false)
   const [gmPulsing, setGmPulsing] = useState(false)
   const [pendingSwapAmount, setPendingSwapAmount] = useState<bigint | null>(null)
@@ -309,16 +445,35 @@ export default function App() {
   const swapError = txErrorMessage(swapWriteError || swapReceiptError || approveWriteError || approveReceiptError)
   const gameError = txErrorMessage(gameStartWriteError || gameStartReceiptError || gameSubmitWriteError || gameSubmitReceiptError)
   const mintError = txErrorMessage(mintWriteError || mintReceiptError)
-  const gameLeaderboard = gameTopScores
-    ? gameTopScores[0]
-      .map((player, index) => ({ player, score: Number(gameTopScores[1][index]) }))
+  const gameLeaderboard = bestTopData
+    ? bestTopData[0]
+      .map((player, index) => ({ player, score: Number(bestTopData[1][index]) }))
       .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
     : []
-  const gameTotalLeaderboard = gameTopTotalScores
-    ? gameTopTotalScores[0]
-      .map((player, index) => ({ player, score: Number(gameTopTotalScores[1][index]) }))
+  const gameTotalLeaderboard = totalTopData
+    ? totalTopData[0]
+      .map((player, index) => ({ player, score: Number(totalTopData[1][index]) }))
       .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
     : []
+  const bestPageEntries = bestPageData
+    ? bestPageData[0]
+      .map((player, index) => ({ player, score: Number(bestPageData[1][index]) }))
+      .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
+    : []
+  const totalPageEntries = totalPageData
+    ? totalPageData[0]
+      .map((player, index) => ({ player, score: Number(totalPageData[1][index]) }))
+      .filter(entry => entry.score > 0 && entry.player !== '0x0000000000000000000000000000000000000000')
+    : []
+  const bestCountNum = bestCount ? Number(bestCount) : 0
+  const totalCountNum = totalCount ? Number(totalCount) : 0
+  const gameMaxBlockNum = gameMaxBlock ? Number(gameMaxBlock) : 0
+  const blockNftMintFeeValue = blockNftMintFee ?? 0n
+  const blockNftMintFeeFormatted = formatEther(blockNftMintFeeValue)
+  const blockNftMintedByTier = [false, blockNftMinted?.[0]?.result === true, blockNftMinted?.[1]?.result === true, blockNftMinted?.[2]?.result === true, blockNftMinted?.[3]?.result === true]
+  const blockNftMintReady = blockNftMinted !== undefined
+  const blockNftHoldersByTier = [0, blockNftHolders?.[0]?.result ? Number(blockNftHolders[0].result) : 0, blockNftHolders?.[1]?.result ? Number(blockNftHolders[1].result) : 0, blockNftHolders?.[2]?.result ? Number(blockNftHolders[2].result) : 0, blockNftHolders?.[3]?.result ? Number(blockNftHolders[3].result) : 0]
+  const blockNftError = txErrorMessage(mintBlockWriteError || mintBlockReceiptError || reportWriteError || reportReceiptError)
 
   const handleGM = () => {
     if (gmClaimed || !onChain || gmPending || gmConfirming) return
@@ -362,9 +517,29 @@ export default function App() {
     writeGameStart({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'startRun', args: [], value: gameEntryFeeValue })
   }
 
-  const handleSubmitGameScore = (score: number) => {
+  const handleSubmitGameScore = (score: number, maxBlock: number) => {
     if (!isVibeGameDeployed || !onChain || gameSubmitPending || gameSubmitConfirming) return
-    writeGameSubmit({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'submitScore', args: [BigInt(score)] })
+    writeGameSubmit({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'submitScore', args: [BigInt(score), BigInt(maxBlock)] })
+  }
+
+  const handleMintBlock = (tier: number, maxTile: number) => {
+    if (!isVibeBlockNFTDeployed || !onChain || blockMintBusy) return
+
+    if (gameMaxBlockNum < maxTile) {
+      setPendingMintTier(tier)
+      setBlockMintBusy(true)
+      writeReportMaxBlock({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'reportMaxBlock', args: [BigInt(maxTile)] })
+      return
+    }
+
+    setBlockMintBusy(true)
+    writeMintBlock({ abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'mint', args: [BigInt(tier)], value: blockNftMintFeeValue })
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setLbPageSize(size)
+    setBestPage(0)
+    setTotalPage(0)
   }
 
   const refreshContractReads = React.useCallback(async () => {
@@ -474,14 +649,17 @@ export default function App() {
       refetchGameActiveRun(),
       refetchGameBestScore(),
       refetchGameTotalScore(),
-      refetchGameTopScores(),
-      refetchGameTopTotalScores(),
+      refetchGameMaxBlock(),
+      refetchBestTop(),
+      refetchTotalTop(),
+      refetchBestPage(),
+      refetchTotalPage(),
       refreshContractReads(),
     ])
 
     const timeout = window.setTimeout(() => resetGameSubmit(), 2500)
     return () => window.clearTimeout(timeout)
-  }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTopScores, refetchGameTopTotalScores, refetchGameTotalScore, refreshContractReads, resetGameSubmit])
+  }, [gameSubmitSuccess, refetchGameActiveRun, refetchGameBestScore, refetchGameTotalScore, refetchGameMaxBlock, refetchBestTop, refetchTotalTop, refetchBestPage, refetchTotalPage, refreshContractReads, resetGameSubmit])
 
   React.useEffect(() => {
     if (!mintSuccess) return
@@ -495,6 +673,51 @@ export default function App() {
     const timeout = window.setTimeout(() => resetMint(), 2500)
     return () => window.clearTimeout(timeout)
   }, [mintSuccess, refetchNFTMinted, refetchNFTHolders, refreshContractReads, resetMint])
+
+  React.useEffect(() => {
+    if (!reportSuccess) return
+
+    if (pendingMintTier !== null) {
+      const tier = pendingMintTier
+      setPendingMintTier(null)
+      writeMintBlock({ abi: vibeBlockNFTAbi, address: vibeBlockNFTAddress, functionName: 'mint', args: [BigInt(tier)], value: blockNftMintFeeValue })
+    } else {
+      setBlockMintBusy(false)
+    }
+
+    void refetchGameMaxBlock()
+
+    const timeout = window.setTimeout(() => resetReport(), 2500)
+    return () => window.clearTimeout(timeout)
+  }, [reportSuccess, pendingMintTier, blockNftMintFeeValue, refetchGameMaxBlock, resetReport, writeMintBlock])
+
+  React.useEffect(() => {
+    if (!mintBlockSuccess) return
+
+    setBlockMintBusy(false)
+
+    void Promise.all([
+      refetchBlockNftMinted(),
+      refetchBlockNftHolders(),
+      refreshContractReads(),
+    ])
+
+    const timeout = window.setTimeout(() => resetMintBlock(), 2500)
+    return () => window.clearTimeout(timeout)
+  }, [mintBlockSuccess, refetchBlockNftMinted, refetchBlockNftHolders, refreshContractReads, resetMintBlock])
+
+  React.useEffect(() => {
+    if (reportWriteError || reportReceiptError) {
+      setBlockMintBusy(false)
+      setPendingMintTier(null)
+    }
+  }, [reportWriteError, reportReceiptError])
+
+  React.useEffect(() => {
+    if (mintBlockWriteError || mintBlockReceiptError) {
+      setBlockMintBusy(false)
+    }
+  }, [mintBlockWriteError, mintBlockReceiptError])
 
   const wrongNetwork = isConnected && chainId !== litVM.id
 
@@ -582,6 +805,15 @@ export default function App() {
               submitSuccess={gameSubmitSuccess}
               txUrl={txUrl(gameSubmitHash || gameStartHash)}
               txError={gameError}
+              blockNftDeployed={isVibeBlockNFTDeployed}
+              mintedByTier={blockNftMintedByTier}
+              mintFee={blockNftMintFeeFormatted}
+              onMint={handleMintBlock}
+              mintPending={blockMintBusy || mintBlockPending || mintBlockConfirming || reportPending || reportConfirming}
+              nftReady={blockNftMintReady}
+              connectedAddress={address}
+              blockNftTxUrl={txUrl(mintBlockHash || reportHash)}
+              blockNftTxError={blockNftError}
             />
           </section>
         )
@@ -600,40 +832,26 @@ export default function App() {
               <p className="section-subtitle">Best single runs and accumulated seasonal points recorded onchain</p>
             </div>
             <div className="leaderboard-page-grid">
-              <div className="leaderboard-card standalone">
-                <div className="leaderboard-header">
-                  <Trophy size={20} />
-                  <span>Best Score</span>
-                </div>
-                <div className="leaderboard-list">
-                  {gameLeaderboard.length ? gameLeaderboard.map((entry, index) => (
-                    <div className="leaderboard-row" key={entry.player}>
-                      <span>#{index + 1}</span>
-                      <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
-                      <em>{entry.score}</em>
-                    </div>
-                  )) : (
-                    <div className="leaderboard-empty">No ranked scores yet</div>
-                  )}
-                </div>
-              </div>
-              <div className="leaderboard-card standalone">
-                <div className="leaderboard-header">
-                  <Trophy size={20} />
-                  <span>Total Score</span>
-                </div>
-                <div className="leaderboard-list">
-                  {gameTotalLeaderboard.length ? gameTotalLeaderboard.map((entry, index) => (
-                    <div className="leaderboard-row" key={entry.player}>
-                      <span>#{index + 1}</span>
-                      <strong>{entry.player.slice(0, 6)}...{entry.player.slice(-4)}</strong>
-                      <em>{entry.score}</em>
-                    </div>
-                  )) : (
-                    <div className="leaderboard-empty">No total scores yet</div>
-                  )}
-                </div>
-              </div>
+              <LeaderboardCard
+                title="Best Score"
+                entries={bestPageEntries}
+                totalCount={bestCountNum}
+                page={bestPage}
+                pageSize={lbPageSize}
+                connectedAddress={address}
+                onPageChange={setBestPage}
+                onPageSizeChange={handlePageSizeChange}
+              />
+              <LeaderboardCard
+                title="Total Score"
+                entries={totalPageEntries}
+                totalCount={totalCountNum}
+                page={totalPage}
+                pageSize={lbPageSize}
+                connectedAddress={address}
+                onPageChange={setTotalPage}
+                onPageSizeChange={handlePageSizeChange}
+              />
             </div>
           </section>
         )
