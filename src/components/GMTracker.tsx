@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkles, Flame } from 'lucide-react'
+import { Sparkles, Flame, Gift } from 'lucide-react'
 
 const MILESTONES = [
   { days: 3, label: '3-Day Sun', icon: '🌤️', color: '#fbbf24' },
@@ -18,12 +18,29 @@ interface GMTrackerProps {
   gmFee: string
   txUrl?: string
   txError?: string
+  mintedByTier: boolean[]
+  mintFee: string
+  onMint: (tier: number) => void
+  mintPending: boolean
+  nftDeployed: boolean
+  mintTxUrl?: string
+  mintTxError?: string
 }
 
-export default function GMTracker({ streak, totalGm, gmClaimed, onGM, gmPulsing, onChain, gmPending, gmFee, txUrl, txError }: GMTrackerProps) {
+export default function GMTracker({ streak, totalGm, gmClaimed, onGM, gmPulsing, onChain, gmPending, gmFee, txUrl, txError, mintedByTier, mintFee, onMint, mintPending, nftDeployed, mintTxUrl, mintTxError }: GMTrackerProps) {
   const nextMilestone = MILESTONES.find(m => streak < m.days)
   const progress = nextMilestone ? (streak / nextMilestone.days) * 100 : 100
   const allComplete = streak >= 30
+
+  const reachedTier = streak >= 30 ? 3 : streak >= 10 ? 2 : streak >= 3 ? 1 : 0
+  let mintableTier = 0
+  for (let t = reachedTier; t >= 1; t--) {
+    if (!mintedByTier[t]) {
+      mintableTier = t
+      break
+    }
+  }
+  const allMinted = reachedTier > 0 && mintableTier === 0
 
   return (
     <div className="gm-tracker">
@@ -75,6 +92,36 @@ export default function GMTracker({ streak, totalGm, gmClaimed, onGM, gmPulsing,
           <Sparkles size={20} />
           <span>{gmClaimed ? "Today's GM claimed!" : gmPending ? 'Confirming...' : 'Say GM Today'}</span>
         </button>
+
+        {nftDeployed && mintableTier > 0 && (
+          <button
+            className="gm-mint-btn"
+            onClick={() => onMint(mintableTier)}
+            disabled={!onChain || mintPending}
+          >
+            <Gift size={18} />
+            <span>{mintPending ? 'Minting...' : `Mint ${MILESTONES[mintableTier - 1].label} NFT · ${mintFee} zkLTC`}</span>
+          </button>
+        )}
+
+        {nftDeployed && allMinted && (
+          <div className="gm-minted-note">
+            <Gift size={16} />
+            <span>Badges minted</span>
+          </div>
+        )}
+
+        {mintTxUrl && (
+          <a className="tx-link" href={mintTxUrl} target="_blank" rel="noreferrer">
+            View mint transaction
+          </a>
+        )}
+
+        {mintTxError && (
+          <div className="faucet-warning">
+            <span>{mintTxError}</span>
+          </div>
+        )}
 
         {txUrl && (
           <a className="tx-link" href={txUrl} target="_blank" rel="noreferrer">
