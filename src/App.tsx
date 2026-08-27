@@ -1,14 +1,15 @@
 import React, { useState, useRef, Suspense } from 'react'
-import { useAccount, useConnect, useDisconnect, useSwitchChain, useBalance, useBlockNumber, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useSwitchChain, useBalance, useBlockNumber, useBlock, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatEther, formatUnits, parseEther, parseUnits } from 'viem'
-import { Sun, ArrowRightLeft, Sparkles, Gift, Flame, Wallet, LogOut, Menu, X, Droplets, ExternalLink, Gamepad2, Trophy } from 'lucide-react'
+import { Sun, ArrowRightLeft, Sparkles, Gift, Flame, Wallet, LogOut, Menu, X, Droplets, ExternalLink, Gamepad2, Trophy, CalendarDays } from 'lucide-react'
 import { litVM } from './wagmi'
 import { vbUSDCAddress, vbUSDCApi } from './contracts/vbUSDC'
 import { gmAddress, gmAbi } from './contracts/GM'
 import { gmBadgeNFTAddress, gmBadgeNFTAbi, isGMBadgeNFTDeployed } from './contracts/GMBadgeNFT'
 import { swapAddress, swapAbi } from './contracts/Swap'
 import { vibeGameAddress, vibeGameAbi, isVibeGameDeployed } from './contracts/VibeGame'
+import { seasonGameAddress, seasonGameAbi, isSeasonGameDeployed } from './contracts/SeasonGame'
 import { vibeBlockNFTAddress, vibeBlockNFTAbi, isVibeBlockNFTDeployed } from './contracts/VibeBlockNFT'
 import SunSphere from './components/SunSphere'
 import VibeBlocks from './components/VibeBlocks'
@@ -17,9 +18,14 @@ import GMTracker from './components/GMTracker'
 import NFTGallery from './components/NFTGallery'
 import FaucetPanel from './components/FaucetPanel'
 import NetworkInfo from './components/NetworkInfo'
+import SeasonPanel from './components/SeasonPanel'
+import SeasonBlocks from './components/SeasonBlocks'
+import SeasonLeaderboard from './components/SeasonLeaderboard'
+import SeasonCountdown from './components/SeasonCountdown'
+import { SEASON0_START } from './season0Constants'
 
-type Page = 'game' | 'swap' | 'gm' | 'nft' | 'faucet' | 'leaderboard' | 'network'
-type NavGroup = 'gm' | 'vibe' | 'swap'
+type Page = 'game' | 'swap' | 'gm' | 'nft' | 'faucet' | 'leaderboard' | 'network' | 'season'
+type NavGroup = 'gm' | 'vibe' | 'swap' | 'season'
 
 const explorerBaseUrl = litVM.blockExplorers?.default.url.replace(/\/$/, '')
 const docsUrl = 'https://docs.vibeswap.net'
@@ -268,6 +274,17 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isVibeGameDeployed },
   })
+  const { data: seasonStartTsData } = useReadContract({
+    abi: seasonGameAbi,
+    address: seasonGameAddress,
+    functionName: 'seasonStart',
+    chainId: litVM.id,
+    query: { enabled: isSeasonGameDeployed },
+  })
+  const { data: seasonNowBlock } = useBlock({ chainId: litVM.id, watch: true })
+  const seasonStartTs = seasonStartTsData ? Number(seasonStartTsData) : SEASON0_START
+  const seasonNow = seasonNowBlock?.timestamp ? Number(seasonNowBlock.timestamp) : Math.floor(Date.now() / 1000)
+  const seasonNotStarted = seasonStartTs > seasonNow
   const { refetch: refetchGameActiveRun } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
@@ -416,6 +433,8 @@ export default function App() {
   const [gmPulsing, setGmPulsing] = useState(false)
   const [pendingSwapAmount, setPendingSwapAmount] = useState<bigint | null>(null)
   const [currentPage, setCurrentPage] = useState<Page>('game')
+  const [seasonTab, setSeasonTab] = useState<'overview' | 'play'>('overview')
+  const [boardTab, setBoardTab] = useState<'alltime' | 'season'>('alltime')
   const heroRef = useRef<HTMLDivElement>(null)
 
   const gmStreakNum = gmStreak ? Number(gmStreak) : 0
@@ -747,9 +766,11 @@ export default function App() {
   const currentGroup: NavGroup =
     currentPage === 'gm' || currentPage === 'nft'
       ? 'gm'
-      : currentPage === 'swap' || currentPage === 'faucet'
-        ? 'swap'
-        : 'vibe'
+      : currentPage === 'season'
+        ? 'season'
+        : currentPage === 'swap' || currentPage === 'faucet'
+          ? 'swap'
+          : 'vibe'
 
   const renderSectionTabs = (items: Array<{ page: Page; label: string }>) => (
     <div className="section-tabs" aria-label="Section navigation">
@@ -829,30 +850,63 @@ export default function App() {
                 <Trophy size={24} />
                 Leaderboard
               </h2>
-              <p className="section-subtitle">Best single runs and accumulated seasonal points recorded onchain</p>
+              <p className="section-subtitle">All-time runs and the Season 0 reward leaderboard</p>
             </div>
-            <div className="leaderboard-page-grid">
-              <LeaderboardCard
-                title="Best Score"
-                entries={bestPageEntries}
-                totalCount={bestCountNum}
-                page={bestPage}
-                pageSize={lbPageSize}
-                connectedAddress={address}
-                onPageChange={setBestPage}
-                onPageSizeChange={handlePageSizeChange}
-              />
-              <LeaderboardCard
-                title="Total Score"
-                entries={totalPageEntries}
-                totalCount={totalCountNum}
-                page={totalPage}
-                pageSize={lbPageSize}
-                connectedAddress={address}
-                onPageChange={setTotalPage}
-                onPageSizeChange={handlePageSizeChange}
-              />
+            <div className="section-tabs board-tabs" aria-label="Leaderboard view">
+              <button className={`section-tab ${boardTab === 'alltime' ? 'active' : ''}`} onClick={() => setBoardTab('alltime')} type="button">All-time</button>
+              <button className={`section-tab ${boardTab === 'season' ? 'active' : ''}`} onClick={() => setBoardTab('season')} type="button">Season 0</button>
             </div>
+            {boardTab === 'alltime' ? (
+              <div className="leaderboard-page-grid">
+                <LeaderboardCard
+                  title="Best Score"
+                  entries={bestPageEntries}
+                  totalCount={bestCountNum}
+                  page={bestPage}
+                  pageSize={lbPageSize}
+                  connectedAddress={address}
+                  onPageChange={setBestPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+                <LeaderboardCard
+                  title="Total Score"
+                  entries={totalPageEntries}
+                  totalCount={totalCountNum}
+                  page={totalPage}
+                  pageSize={lbPageSize}
+                  connectedAddress={address}
+                  onPageChange={setTotalPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </div>
+            ) : (
+              <SeasonLeaderboard />
+            )}
+          </section>
+        )
+      case 'season':
+        if (seasonNotStarted) {
+          return (
+            <section className="section season-landing" id="season">
+              <SeasonCountdown target={seasonStartTs} />
+            </section>
+          )
+        }
+        return (
+          <section className="section" id="season">
+            <div className="section-tabs" aria-label="Season navigation">
+              <button className={`section-tab ${seasonTab === 'overview' ? 'active' : ''}`} onClick={() => setSeasonTab('overview')} type="button">Overview</button>
+              <button className={`section-tab ${seasonTab === 'play' ? 'active' : ''}`} onClick={() => setSeasonTab('play')} type="button">Play</button>
+              <button className="section-tab" onClick={() => navigateTo('leaderboard')} type="button">Leaderboard →</button>
+            </div>
+            <div className="section-header">
+              <h2 className="section-title">
+                <CalendarDays size={24} />
+                Season 0
+              </h2>
+              <p className="section-subtitle">Compete on the seasonal leaderboard for zkLTC rewards</p>
+            </div>
+            {seasonTab === 'overview' ? <SeasonPanel /> : <SeasonBlocks />}
           </section>
         )
       case 'swap':
@@ -1015,6 +1069,7 @@ export default function App() {
             </div>
           </div>
           <div className="nav-center desktop-only">
+            <a href="#season" className={`nav-link season-nav-link ${currentGroup === 'season' ? 'active' : ''}`} onClick={() => navigateTo('season')}>☀️ SEASON</a>
             <a href="#gm" className={`nav-link ${currentGroup === 'gm' ? 'active' : ''}`} onClick={() => navigateTo('gm')}>GM</a>
             <a href="#game" className={`nav-link ${currentGroup === 'vibe' ? 'active' : ''}`} onClick={() => navigateTo('game')}>Vibe</a>
             <a href="#swap" className={`nav-link ${currentGroup === 'swap' ? 'active' : ''}`} onClick={() => navigateTo('swap')}>Swap</a>
@@ -1059,6 +1114,7 @@ export default function App() {
         </div>
         {menuOpen && (
           <div className="mobile-menu">
+            <a href="#season" className="season-nav-link" onClick={() => navigateTo('season')}>☀️ SEASON</a>
             <a href="#gm" onClick={() => navigateTo('gm')}>GM</a>
             <a href="#game" onClick={() => navigateTo('game')}>Vibe</a>
             <a href="#swap" onClick={() => navigateTo('swap')}>Swap</a>

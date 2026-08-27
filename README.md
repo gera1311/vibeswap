@@ -41,6 +41,14 @@ Vibeswap is a LitVM LiteForge onchain arcade with ranked games, token swaps, a p
   - `0.002 zkLTC` mint fee
   - minted automatically during an active ranked run when the tile is reached (once per tier)
   - onchain verification via `VibeGame.maxBlock` and `VibeGame.activeRun`
+- Season 0 (seasonal Vibe Blocks competition):
+  - seasonal ranked runs against `SeasonGame` (entry fee `0.0051 zkLTC`)
+  - season points, `daysPlayed`, and current rank shown in the game
+  - season leaderboard with rank / wallet / points / days / live reward per row
+  - live reward pool = Season 0 treasury EOA balance + `SeasonRewards` balance
+  - claim-based zkLTC rewards (settle -> claim -> sweep lifecycle)
+  - reward formula as a single onchain function (`SeasonRewards.rewardForRank`) shared by the projection and payout
+  - soulbound "Season 0 Participant" NFT (`VS0`), free mint for `>= 10` days played
 - Transaction states:
   - pending, confirming, success
   - readable error messages
@@ -126,6 +134,9 @@ Solidity contracts live in [contracts](contracts).
 - [contracts/GMBadgeNFT.sol](contracts/GMBadgeNFT.sol)
 - [contracts/VibeGame.sol](contracts/VibeGame.sol)
 - [contracts/VibeBlockNFT.sol](contracts/VibeBlockNFT.sol)
+- [contracts/SeasonGame.sol](contracts/SeasonGame.sol)
+- [contracts/SeasonRewards.sol](contracts/SeasonRewards.sol)
+- [contracts/SeasonNFT.sol](contracts/SeasonNFT.sol)
 - [contracts/vbUSDC.sol](contracts/vbUSDC.sol)
 - [contracts/Swap.sol](contracts/Swap.sol)
 
@@ -162,6 +173,67 @@ npm run deploy:blocknft
 ```
 
 This deploys the block achievement NFT contract (linked to the current `VibeGame` address), writes `deployments-block-nft.json`, and updates `src/contracts/deployments.ts`. The mint fee defaults to `0.002 zkLTC` (`BLOCK_NFT_MINT_FEE_ZKLTC`) and the treasury falls back to `BLOCK_NFT_TREASURY_ADDRESS`, then `FEE_TREASURY_ADDRESS`, then `GAME_TREASURY_ADDRESS`, then the deployer address.
+
+### Deploy Season 0
+
+Season 0 uses three contracts, deployed in order: `SeasonGame`, then `SeasonRewards`
+(linked to the game), then `SeasonNFT` (linked to the game). Full rules, formula, prize
+table, and timeline are documented in [docs/economics/season-0.md](docs/economics/season-0.md).
+
+First generate a dedicated Season 0 treasury wallet (separate from the deployer):
+
+```bash
+node -e "import('viem/accounts').then(({generatePrivateKey, privateKeyToAccount}) => { const pk = generatePrivateKey(); console.log('SEASON0_TREASURY_ADDRESS=' + privateKeyToAccount(pk).address); console.log('SEASON0_TREASURY_PRIVATE_KEY=' + pk) })"
+```
+
+The **only** Season 0 value in `.env` is the private key; the address is derived from it by
+the scripts, and the frontend reads it onchain from `SeasonGame.treasury()`:
+
+```env
+SEASON0_TREASURY_PRIVATE_KEY=...
+```
+
+Fund the derived treasury address with the zkLTC pool.
+
+```bash
+npm run deploy:season:game
+npm run deploy:season:rewards
+npm run deploy:season:nft
+```
+
+Each script compiles the contract with `solc`, deploys it with `viem`, writes
+`deployments-season0-*.json`, and updates `src/contracts/deployments.ts`
+(`seasonGame` / `seasonRewards` / `seasonNft`). `SeasonRewards` and `SeasonNFT` take the
+game address from `deployments-season0-game.json` (override with `SEASON0_GAME_ADDRESS` if
+needed), so no address variables are required in `.env`.
+
+Season parameters (window, thresholds, fee) are fixed Season 0 defaults inside the deploy
+scripts — see [docs/economics/season-0.md](docs/economics/season-0.md) — and can be
+overridden via `SEASON0_SEASON_START`, `SEASON0_SEASON_END`, `SEASON0_MIN_DAYS_PLAYED`,
+`SEASON0_SUBMIT_GRACE`, `SEASON0_MAX_RUNS_PER_DAY`, `SEASON0_MIN_RUN_INTERVAL`,
+`SEASON0_TOP_TIER_END`, `SEASON0_TOP_TIER_SHARE_BPS`, `SEASON0_REWARD_END_RANK`,
+`SEASON0_CLAIM_DEADLINE`, `SEASON0_MINT_DEADLINE` if a future season differs.
+
+### Fund the Season 0 Pool
+
+Transfer the pool from the Season 0 treasury EOA into `SeasonRewards` **before** settle.
+`SEASON0_TREASURY_PRIVATE_KEY` must be set in `.env`:
+
+```bash
+npm run fund:season:rewards -- 10        # sends 10 zkLTC
+node scripts/fund-season-rewards.js --all     # sends the treasury's full balance
+node scripts/fund-season-rewards.js 10 --yes  # skip the interactive confirmation
+```
+
+The recipient comes from `deployments-season0-rewards.json` and the amount from the CLI
+argument (or the full balance with `--all`). The pool is the actual `SeasonRewards` balance
+at `settle()` time.
+
+### Settle, Claim, Sweep
+
+After the season ends (2026-09-30), the deployer/owner calls `SeasonRewards.settle()` once,
+then winners call `claim()` until 2026-10-31. After the deadline, the owner sweeps
+unclaimed funds to the next season treasury with `sweepUnclaimed(nextSeasonTreasury)`.
 
 ### Migrate Leaderboard
 
@@ -215,6 +287,7 @@ zkLTC reserve: 0.11
 - Keep treasury/deployer private keys outside git.
 - Keep game score verification in mind before larger public reward campaigns. The MVP records scores onchain after a browser run; future anti-cheat can add commit/reveal or server-side validation.
 - Game leaderboard points are isolated in `scoreToLeaderboardPoints()` inside `VibeGame`, so future seasonal scoring rules can be adjusted in one place before a new season deployment.
+- For Season 0: fund `SeasonRewards` before `settle()`, publish the season rules before launch, and keep the Season 0 treasury EOA separate from the deployer.
 
 ## Useful Explorer Links
 

@@ -11,6 +11,7 @@
   * [$VBS Token](economics/vbs-token.md)
   * [Treasury](economics/treasury.md)
   * [Fee Distribution](economics/fee-distribution.md)
+  * [Season 0](economics/season-0.md)
 * [Security](security/README.md)
   * [Security](security/security.md)
   * [Smart Contracts](security/smart-contracts.md)

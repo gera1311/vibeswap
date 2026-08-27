@@ -10,6 +10,10 @@
     "deploy:game": "node scripts/deploy-game.js",
     "deploy:nft": "node scripts/deploy-nft.js",
     "deploy:blocknft": "node scripts/deploy-block-nft.js",
+    "deploy:season:game": "node scripts/deploy-season-game.js",
+    "deploy:season:rewards": "node scripts/deploy-season-rewards.js",
+    "deploy:season:nft": "node scripts/deploy-season-nft.js",
+    "fund:season:rewards": "node scripts/fund-season-rewards.js",
     "deploy:swap": "node scripts/deploy-swap.js",
     "deploy:swap:reuse-token": "node scripts/deploy-swap.js --reuse-token",
     "monitor:reserves": "node scripts/check-reserves.js"

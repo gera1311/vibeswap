@@ -1,0 +1,13 @@
+{
+  "chainId": 4441,
+  "contract": "SeasonRewards",
+  "address": "0x44bde186c63fc77e371c3e796ac1af4a38b83b5c",
+  "game": "0x666a0c2772dac76bd5cdfef083a193b2b7288b5b",
+  "seasonId": "0",
+  "topTierEnd": "25",
+  "topTierShareBps": "7000",
+  "rewardEndRank": "100",
+  "claimDeadline": "1793491199",
+  "transactionHash": "0x8c24e69b5994c8ba211e0300b9dcb9ee2f7b8c27a5c08673fe7bf78d6c7bdac1",
+  "blockNumber": "44488760"
+}
