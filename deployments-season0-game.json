@@ -1,0 +1,16 @@
+{
+  "chainId": 4441,
+  "contract": "SeasonGame",
+  "address": "0x666a0c2772dac76bd5cdfef083a193b2b7288b5b",
+  "treasury": "0x913AF26c77D2ceaa0BF6E59039b515Aa81268F6d",
+  "entryFeeZkLTC": "0.0051",
+  "seasonId": "0",
+  "seasonStart": "1788220800",
+  "seasonEnd": "1790812799",
+  "minDaysPlayed": "10",
+  "submitGrace": "86400",
+  "maxRunsPerDay": "10",
+  "minRunInterval": "60",
+  "transactionHash": "0xa8c676d2e4c1d7050da59fa3502eab7b6561ede345f4d108110c2932f7c64231",
+  "blockNumber": "44488594"
+}

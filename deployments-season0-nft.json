@@ -1,0 +1,11 @@
+{
+  "chainId": 4441,
+  "contract": "SeasonNFT",
+  "address": "0x93acd91e1a8c7f514eb00ce95fbb284c85f228b9",
+  "game": "0x666a0c2772dac76bd5cdfef083a193b2b7288b5b",
+  "seasonId": "0",
+  "minDaysPlayed": "10",
+  "mintDeadline": "1793491199",
+  "transactionHash": "0x092319a99c839cfe22c70fa38add3decafc43183d583e5571eb758e49a014b9b",
+  "blockNumber": "44488860"
+}
