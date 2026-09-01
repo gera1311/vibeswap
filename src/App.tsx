@@ -22,7 +22,7 @@ import SeasonPanel from './components/SeasonPanel'
 import SeasonBlocks from './components/SeasonBlocks'
 import SeasonLeaderboard from './components/SeasonLeaderboard'
 import SeasonCountdown from './components/SeasonCountdown'
-import { SEASON0_START } from './season0Constants'
+import { SEASON0_START, SEASON0_END } from './season0Constants'
 
 type Page = 'game' | 'swap' | 'gm' | 'nft' | 'faucet' | 'leaderboard' | 'network' | 'season'
 type NavGroup = 'gm' | 'vibe' | 'swap' | 'season'
@@ -281,10 +281,19 @@ export default function App() {
     chainId: litVM.id,
     query: { enabled: isSeasonGameDeployed },
   })
+  const { data: seasonEndTsData } = useReadContract({
+    abi: seasonGameAbi,
+    address: seasonGameAddress,
+    functionName: 'seasonEnd',
+    chainId: litVM.id,
+    query: { enabled: isSeasonGameDeployed },
+  })
   const { data: seasonNowBlock } = useBlock({ chainId: litVM.id, watch: true })
   const seasonStartTs = seasonStartTsData ? Number(seasonStartTsData) : SEASON0_START
+  const seasonEndTs = seasonEndTsData ? Number(seasonEndTsData) : SEASON0_END
   const seasonNow = seasonNowBlock?.timestamp ? Number(seasonNowBlock.timestamp) : Math.floor(Date.now() / 1000)
   const seasonNotStarted = seasonStartTs > seasonNow
+  const seasonActive = seasonStartTs <= seasonNow && seasonNow <= seasonEndTs
   const { refetch: refetchGameActiveRun } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
@@ -795,6 +804,29 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'game':
+        if (seasonActive) {
+          return (
+            <section className="section" id="game">
+              {renderSectionTabs([
+                { page: 'game', label: 'Game' },
+                { page: 'leaderboard', label: 'Leaderboard' },
+              ])}
+              <div className="section-header">
+                <h2 className="section-title">
+                  <Gamepad2 size={24} />
+                  Vibe Blocks
+                </h2>
+                <p className="section-subtitle">Season 0 is live</p>
+              </div>
+              <div className="season-game-redirect">
+                <p className="season-game-redirect-text">The regular ranked mode is paused during Season 0, so every entry fee goes to the season reward pool.</p>
+                <button className="game-action" onClick={() => { setSeasonTab('play'); navigateTo('season') }} type="button">
+                  Play Season 0 →
+                </button>
+              </div>
+            </section>
+          )
+        }
         return (
           <section className="section" id="game">
             {renderSectionTabs([
