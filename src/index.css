@@ -2863,3 +2863,28 @@ input {
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+
+/* ========== SEASON GAME REDIRECT ========== */
+.season-game-redirect {
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 36px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.season-game-redirect-text {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.season-game-redirect .game-action {
+  max-width: 320px;
+}
