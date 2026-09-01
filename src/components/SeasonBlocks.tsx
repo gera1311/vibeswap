@@ -24,6 +24,12 @@ function txErrorMessage(error?: (Error & { shortMessage?: string }) | null) {
   if (message.includes('season ended')) {
     return 'The season has ended.'
   }
+  if (message.includes('run already active')) {
+    return 'You already have an active run in progress.'
+  }
+  if (message.includes('invalid entry fee')) {
+    return 'Invalid entry fee. Try again.'
+  }
   if (message.includes('daily run limit')) {
     return 'Daily run limit reached. Try again tomorrow.'
   }
@@ -111,11 +117,19 @@ export default function SeasonBlocks() {
     chainId: litVM.id,
     query: { enabled: isSeasonGameDeployed && !!address },
   })
+  const { data: activeRun, refetch: refetchActiveRun } = useReadContract({
+    abi: seasonGameAbi,
+    address: seasonGameAddress,
+    functionName: 'activeRun',
+    args: [address!],
+    chainId: litVM.id,
+    query: { enabled: isSeasonGameDeployed && !!address },
+  })
 
   const { writeContract: writeStart, data: startHash, isPending: startPending, error: startError, reset: resetStart } = useWriteContract()
   const { writeContract: writeSubmit, data: submitHash, isPending: submitPending, error: submitError, reset: resetSubmit } = useWriteContract()
-  const { isLoading: startConfirming, isSuccess: startSuccess } = useWaitForTransactionReceipt({ hash: startHash, chainId: litVM.id })
-  const { isLoading: submitConfirming, isSuccess: submitSuccess } = useWaitForTransactionReceipt({ hash: submitHash, chainId: litVM.id })
+  const { isLoading: startConfirming, isSuccess: startSuccess, error: startReceiptError } = useWaitForTransactionReceipt({ hash: startHash, chainId: litVM.id })
+  const { isLoading: submitConfirming, isSuccess: submitSuccess, error: submitReceiptError } = useWaitForTransactionReceipt({ hash: submitHash, chainId: litVM.id })
 
   const [board, setBoard] = React.useState<Board>(() => emptyBoard())
   const [score, setScore] = React.useState(0)
@@ -163,6 +177,20 @@ export default function SeasonBlocks() {
     previousStartSubmitted.current = startSuccess
   }, [resetGame, startSuccess])
 
+  // Self-heal: if the onchain run is active but the UI lost it (mobile reload /
+  // remount between signing and confirmation), unlock the board from onchain
+  // state instead of showing the Start button again. Guarded against the post-
+  // submit window where `activeRun` is still stale-true but the run is done.
+  React.useEffect(() => {
+    if (activeRun === true && !runStarted && !startPending && !startConfirming && !submitPending && !submitConfirming && !submitSuccess) {
+      setBoard(createBoard())
+      setScore(0)
+      setRunStarted(true)
+      setGameOver(false)
+      setScoreSubmitted(false)
+    }
+  }, [activeRun, runStarted, startPending, startConfirming, submitPending, submitConfirming, submitSuccess])
+
   React.useEffect(() => {
     if (!gameOver || !runStarted || scoreSubmitted || submitPending || score <= 0) return
 
@@ -178,14 +206,14 @@ export default function SeasonBlocks() {
   React.useEffect(() => {
     if (!startSuccess && !submitSuccess) return
 
-    void Promise.all([refetchPoints(), refetchBest(), refetchDays(), refetchRank()])
+    void Promise.all([refetchPoints(), refetchBest(), refetchDays(), refetchRank(), refetchActiveRun()])
 
     const timeout = window.setTimeout(() => {
       resetStart()
       resetSubmit()
     }, 2500)
     return () => window.clearTimeout(timeout)
-  }, [startSuccess, submitSuccess, refetchBest, refetchDays, refetchPoints, refetchRank, resetStart, resetSubmit])
+  }, [startSuccess, submitSuccess, refetchBest, refetchDays, refetchPoints, refetchRank, refetchActiveRun, resetStart, resetSubmit])
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -208,7 +236,7 @@ export default function SeasonBlocks() {
   }, [performMove])
 
   const startRanked = () => {
-    if (!isSeasonGameDeployed || !onChain || !seasonActive) return
+    if (!isSeasonGameDeployed || !onChain || !seasonActive || entryFee === undefined) return
     writeStart({ abi: seasonGameAbi, address: seasonGameAddress, functionName: 'startRun', args: [], value: entryFeeValue })
   }
 
@@ -230,7 +258,7 @@ export default function SeasonBlocks() {
     }
   }
 
-  const error = txErrorMessage(startError || submitError)
+  const error = txErrorMessage(startError || startReceiptError || submitError || submitReceiptError)
   const statusLabel = seasonNotStarted
     ? 'Season not started yet'
     : seasonEnded
@@ -307,7 +335,7 @@ export default function SeasonBlocks() {
           <button
             className="game-action"
             onClick={startRanked}
-            disabled={!isConnected || wrongNetwork || startPending || startConfirming || submitPending || submitConfirming || !isSeasonGameDeployed || !seasonActive || (runStarted && !gameOver)}
+            disabled={!isConnected || wrongNetwork || startPending || startConfirming || submitPending || submitConfirming || !isSeasonGameDeployed || !seasonActive || entryFee === undefined || (runStarted && !gameOver)}
           >
             {startPending || startConfirming
               ? 'Starting...'
@@ -315,7 +343,9 @@ export default function SeasonBlocks() {
                 ? 'Submitting...'
                 : runStarted && !gameOver
                   ? 'Run active'
-                  : `Start ${formatEther(entryFeeValue)} zkLTC`}
+                  : entryFee === undefined
+                    ? 'Loading fee…'
+                    : `Start ${formatEther(entryFeeValue)} zkLTC`}
           </button>
         </div>
 
