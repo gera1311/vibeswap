@@ -19,6 +19,7 @@ interface VibeBlocksProps {
   totalLeaderboard: LeaderboardEntry[]
   onStartRanked: () => void
   onSubmitScore: (score: number, maxBlock: number) => void
+  activeRunOnChain?: boolean
   startPending: boolean
   startSubmitted: boolean
   submitPending: boolean
@@ -59,6 +60,7 @@ export default function VibeBlocks({
   totalLeaderboard,
   onStartRanked,
   onSubmitScore,
+  activeRunOnChain,
   startPending,
   startSubmitted,
   submitPending,
@@ -117,6 +119,16 @@ export default function VibeBlocks({
 
     previousStartSubmitted.current = startSubmitted
   }, [resetGame, startSubmitted])
+
+  // Self-heal: if the onchain run is active but the UI lost it (mobile reload /
+  // remount between signing and confirmation), unlock the board from onchain
+  // state instead of showing the Start button again. Guarded against the post-
+  // submit window where `activeRunOnChain` is still stale-true.
+  React.useEffect(() => {
+    if (activeRunOnChain === true && !runStarted && !startPending && !submitPending && !submitSuccess) {
+      resetGame()
+    }
+  }, [activeRunOnChain, runStarted, startPending, submitPending, submitSuccess, resetGame])
 
   React.useEffect(() => {
     if (!gameOver || !runStarted || scoreSubmitted || submitPending || score <= 0) return

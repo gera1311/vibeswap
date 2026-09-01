@@ -294,7 +294,7 @@ export default function App() {
   const seasonNow = seasonNowBlock?.timestamp ? Number(seasonNowBlock.timestamp) : Math.floor(Date.now() / 1000)
   const seasonNotStarted = seasonStartTs > seasonNow
   const seasonActive = seasonStartTs <= seasonNow && seasonNow <= seasonEndTs
-  const { refetch: refetchGameActiveRun } = useReadContract({
+  const { data: gameActiveRun, refetch: refetchGameActiveRun } = useReadContract({
     abi: vibeGameAbi,
     address: vibeGameAddress,
     functionName: 'activeRun',
@@ -541,7 +541,7 @@ export default function App() {
   }
 
   const handleStartRankedRun = () => {
-    if (!isVibeGameDeployed || !onChain || gameStartPending || gameStartConfirming) return
+    if (!isVibeGameDeployed || !onChain || gameStartPending || gameStartConfirming || gameEntryFee === undefined) return
     writeGameStart({ abi: vibeGameAbi, address: vibeGameAddress, functionName: 'startRun', args: [], value: gameEntryFeeValue })
   }
 
@@ -852,6 +852,7 @@ export default function App() {
               totalLeaderboard={gameTotalLeaderboard}
               onStartRanked={handleStartRankedRun}
               onSubmitScore={handleSubmitGameScore}
+              activeRunOnChain={gameActiveRun === true}
               startPending={gameStartPending || gameStartConfirming}
               startSubmitted={!!gameStartHash}
               submitPending={gameSubmitPending || gameSubmitConfirming}
