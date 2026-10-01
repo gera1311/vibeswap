@@ -70,6 +70,7 @@ export default function SeasonPanel() {
   const { data: settled } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'settled', chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed } })
   const { data: rewardEndRank } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'rewardEndRank', chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed } })
   const { data: rewardsPool } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'pool', chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed } })
+  const { data: settledPoolValue } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'poolValue', chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed } })
   const { data: myReward, refetch: refetchReward } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'reward', args: [address!], chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed && !!address } })
   const { data: myClaimed, refetch: refetchClaimed } = useReadContract({ abi: seasonRewardsAbi, address: seasonRewardsAddress, functionName: 'claimed', args: [address!], chainId: litVM.id, query: { enabled: isSeasonRewardsDeployed && !!address } })
 
@@ -106,7 +107,9 @@ export default function SeasonPanel() {
     return () => window.clearTimeout(timeout)
   }, [claimSuccess, mintSuccess, refetchClaimed, refetchDays, refetchNftMinted, refetchRank, refetchReward, refetchTreasury, resetClaim, resetMint])
 
-  const pool = (treasuryBalance?.value ?? 0n) + (rewardsPool ?? 0n)
+  const pool = settled === true
+    ? (settledPoolValue ?? 0n)
+    : (treasuryBalance?.value ?? 0n) + (rewardsPool ?? 0n)
   const minDays = seasonMinDays ? Number(seasonMinDays) : 10
   const rewardEnd = rewardEndRank ? Number(rewardEndRank) : 100
   const deadline = claimDeadline ? Number(claimDeadline) : 0
@@ -159,7 +162,7 @@ export default function SeasonPanel() {
             <span>Season 0 Reward Pool</span>
           </div>
           <div className="season-pool-value">{rewardText(pool)}</div>
-          <p className="season-card-sub">Treasury EOA + SeasonRewards balance. Final pool is locked at settle.</p>
+          <p className="season-card-sub">{settled === true ? 'Reward pool locked at settle.' : 'Treasury EOA + SeasonRewards balance (live projection).'}</p>
           {seasonTreasury && (
             <a className="tx-link" href={`${explorerBase}/address/${seasonTreasury}`} target="_blank" rel="noreferrer">
               <ExternalLink size={13} />
