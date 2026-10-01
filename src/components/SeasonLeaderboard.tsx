@@ -58,6 +58,13 @@ export default function SeasonLeaderboard() {
     chainId: litVM.id,
     query: { enabled: isSeasonRewardsDeployed },
   })
+  const { data: settledPoolValue } = useReadContract({
+    abi: seasonRewardsAbi,
+    address: seasonRewardsAddress,
+    functionName: 'poolValue',
+    chainId: litVM.id,
+    query: { enabled: isSeasonRewardsDeployed },
+  })
   // The season treasury EOA is onchain state (SeasonGame.treasury); its balance
   // plus the SeasonRewards balance forms the live pool.
   const { data: seasonTreasury } = useReadContract({ abi: seasonGameAbi, address: seasonGameAddress, functionName: 'treasury', chainId: litVM.id, query: { enabled: isSeasonGameDeployed } })
@@ -72,7 +79,9 @@ export default function SeasonLeaderboard() {
   const count = seasonCount ? Number(seasonCount) : 0
   const totalPages = Math.max(1, Math.ceil(count / pageSize))
 
-  const currentPool = (treasuryBalance?.value ?? 0n) + (rewardsPool ?? 0n)
+  const currentPool = settled === true
+    ? (settledPoolValue ?? 0n)
+    : (treasuryBalance?.value ?? 0n) + (rewardsPool ?? 0n)
   const rewardEnd = rewardEndRank ? Number(rewardEndRank) : 100
 
   const { data: pageDays } = useReadContracts({
